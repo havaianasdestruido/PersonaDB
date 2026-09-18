@@ -1,0 +1,25 @@
+services:
+  db:
+    image: postgres:16
+    container_name: persona_db_pg
+    environment:
+      POSTGRES_USER: persona
+      POSTGRES_PASSWORD: persona
+      POSTGRES_DB: persona_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./sql/schema:/docker-entrypoint-initdb.d:ro
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    container_name: persona_db_pgadmin
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@persona.local
+      PGADMIN_DEFAULT_PASSWORD: admin
+    ports:
+      - "8080:80"
+    depends_on:
+      - db
+volumes:
+  pgdata:

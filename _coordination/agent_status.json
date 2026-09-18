@@ -1,0 +1,105 @@
+{
+  "version": 1,
+  "protocol": "exclusive-writers-plus-shared-read",
+  "agents": {
+    "2": {
+      "status": "success",
+      "files": [
+        "persona_db/engines/rng.py",
+        "persona_db/engines/socio.py",
+        "persona_db/engines/health.py",
+        "persona_db/tests/unit/test_base_engines.py"
+      ],
+      "extra": {}
+    },
+    "3": {
+      "status": "success",
+      "files": [
+        "persona_db/engines/genetics.py",
+        "persona_db/engines/family.py",
+        "persona_db/engines/geography.py",
+        "persona_db/tests/unit/test_genetics_family_geo.py"
+      ],
+      "extra": {}
+    },
+    "4": {
+      "status": "success",
+      "files": [
+        "persona_db/engines/criminal.py",
+        "persona_db/tests/unit/test_criminal.py"
+      ],
+      "extra": {}
+    },
+    "5": {
+      "status": "success",
+      "files": [
+        "persona_db/seeds/lookup_data.py",
+        "persona_db/seeds/probability_tables.py"
+      ],
+      "extra": {
+        "note": "CNPJ check-digit algorithm fixed (modulo-11 with 11->0 rule). MALE_FIRST_NAMES=209, FEMALE_FIRST_NAMES=226, SURNAMES=320, CIDADES=52, BAIRROS=560, PROFISSOES=500, DOENCAS=200, MEDICAMENTOS=100, CURSOS=50, IPCA_MENSAL=276, EMPRESAS CNPJs all valid."
+      }
+    },
+    "6": {
+      "status": "success",
+      "files": [
+        "persona_db/sql/schema/00_hub.sql",
+        "persona_db/sql/schema/01_identidade.sql",
+        "persona_db/sql/schema/02_genealogia.sql",
+        "persona_db/sql/schema/03_saude.sql"
+      ],
+      "extra": {
+        "note": "exame_resultado is PARTITION BY HASH (exame_id); concrete partitions in 98_indexes.sql."
+      }
+    },
+    "7": {
+      "status": "success",
+      "files": [
+        "persona_db/sql/schema/04_educacao.sql",
+        "persona_db/sql/schema/05_carreira.sql",
+        "persona_db/sql/schema/06_financas.sql"
+      ],
+      "extra": {
+        "note": "transacao is PARTITION BY RANGE (data); partitions in 98_indexes.sql. Cross-domain FK estagio.empresa_id resolved via DO ALTER block."
+      }
+    },
+    "8": {
+      "status": "success",
+      "files": [
+        "persona_db/sql/schema/07_residencia.sql",
+        "persona_db/sql/schema/08_relacionamentos.sql",
+        "persona_db/sql/schema/09_rede_social.sql",
+        "persona_db/sql/schema/10_vida_digital.sql",
+        "persona_db/sql/schema/11_juridico.sql",
+        "persona_db/sql/schema/12_eleitoral.sql",
+        "persona_db/sql/schema/13_viagens.sql",
+        "persona_db/sql/schema/14_pets.sql",
+        "persona_db/sql/schema/15_consumo.sql",
+        "persona_db/sql/schema/16_timeline.sql",
+        "persona_db/sql/schema/17_comportamento.sql",
+        "persona_db/sql/schema/18_religiao.sql",
+        "persona_db/sql/schema/19_esporte.sql",
+        "persona_db/sql/schema/20_militar.sql",
+        "persona_db/sql/schema/21_imigracao.sql",
+        "persona_db/sql/schema/22_comunicacao.sql",
+        "persona_db/sql/schema/23_midia.sql",
+        "persona_db/sql/schema/24_meta.sql",
+        "persona_db/sql/schema/25_juncoes.sql",
+        "persona_db/sql/schema/26_metadata.sql"
+      ],
+      "extra": {
+        "note": "pessoa_processo duplicated in 25_juncoes (composite PK) safely skipped by IF NOT EXISTS."
+      }
+    },
+    "9": {
+      "status": "success",
+      "files": [
+        "persona_db/sql/schema/98_indexes.sql",
+        "persona_db/sql/schema/99_functions.sql"
+      ],
+      "extra": {
+        "note": "All 28 schema files PASS sqlglot (postgres dialect) validation; plpgsql DO/function bodies fall back to Command parsing (tokenizer limitation, not SQL errors). transacao partitions transacao_YYYY (2015..2031) + DEFAULT fallback; exame_resultado_p0..p3 hash partitions. trg_fn_log_alteracao rewritten avoiding ARRAY(subquery) gotcha. Docker Desktop engine unavailable for live PG validation."
+      }
+    }
+  }
+}
