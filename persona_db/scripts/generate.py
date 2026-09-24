@@ -17,7 +17,14 @@ from persona_db.validators.run_validators import validate_dataset
 
 
 def generate_dataset(n_people: int, seed: int = 7, today: date | None = None) -> dict[str, list[dict[str, Any]]]:
-    """Generate all available domains in their dependency order."""
+    """Generate person, genealogy, identity, and health data in dependency order.
+
+    ``n_people`` sets the number of base people. With the same simulation date,
+    ``seed`` produces the same data. ``today`` anchors person, genealogy, and
+    health dates; identity dates use the configured simulation date. The result
+    maps table names to rows and includes genealogy's underscore-prefixed
+    auxiliary entry. Errors from domain generators propagate.
+    """
     personas = gen_00_pessoa.generate_personas(n_people, seed=seed, today=today)
     tables: dict[str, list[dict[str, Any]]] = {"pessoa": personas}
     for domain in (
@@ -31,6 +38,12 @@ def generate_dataset(n_people: int, seed: int = 7, today: date | None = None) ->
 
 
 def main() -> int:
+    """Validate and write a generated snapshot as UTF-8 JSON.
+
+    Creates the output directory and returns zero after writing. Invalid
+    arguments or critical validation findings raise ``SystemExit``; generation
+    and file system errors propagate.
+    """
     parser = argparse.ArgumentParser(description="Generate a deterministic PersonaDB JSON dataset.")
     parser.add_argument("--people", type=int, default=100, help="number of personas (default: 100)")
     parser.add_argument("--seed", type=int, default=7)
