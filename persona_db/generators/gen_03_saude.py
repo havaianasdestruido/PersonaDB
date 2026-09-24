@@ -314,6 +314,11 @@ def _vacinas(p, rows, rng, start, end, age):
 
 
 def _alergias_pessoa(p, rows, rng):
+    """Attempt to add a sampled allergy and optional reaction to ``rows``.
+
+    The initial probability draw may leave ``rows`` unchanged. Sampling errors
+    propagate to callers.
+    """
     if not rng.bernoulli(0.25):
         return
     item = rng.choice(_ALERGIAS)

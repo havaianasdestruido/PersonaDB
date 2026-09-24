@@ -8,6 +8,11 @@ from persona_db.scripts.generate import generate_dataset
 
 
 def main() -> int:
+    """Print the requested population, generated row count, and elapsed seconds.
+
+    Returns zero on success. Invalid arguments raise ``SystemExit`` and
+    generation errors propagate.
+    """
     parser = argparse.ArgumentParser()
     parser.add_argument("--people", type=int, default=1_000)
     parser.add_argument("--seed", type=int, default=7)

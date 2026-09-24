@@ -10,10 +10,19 @@ Check = Callable[[dict[str, list[dict[str, Any]]], date], list[Violation]]
 
 
 def _date(value: str | None) -> date | None:
+    """Parse a nonempty ISO date, or return ``None`` for a missing value.
+
+    Malformed nonempty dates raise ``ValueError``.
+    """
     return date.fromisoformat(value) if value else None
 
 
 def check_people(dataset: dict[str, list[dict[str, Any]]], today: date) -> list[Violation]:
+    """Report missing or non-past births and inconsistent death information.
+
+    Birth dates must precede ``today``. Each violation identifies its rule and
+    person; invalid nonempty dates propagate date parsing errors.
+    """
     problems = []
     for person in dataset.get("pessoa", []):
         born, died = _date(person.get("data_nascimento")), _date(person.get("data_obito"))
@@ -27,6 +36,11 @@ def check_people(dataset: dict[str, list[dict[str, Any]]], today: date) -> list[
 
 
 def check_parentage(dataset: dict[str, list[dict[str, Any]]], today: date) -> list[Violation]:
+    """Report parents less than 14 * 365 days older than their children.
+
+    Only parents present in ``pessoa`` are checked. Violations identify both
+    people. Missing required IDs or dates and malformed dates propagate errors.
+    """
     people = {p["id"]: p for p in dataset.get("pessoa", [])}
     problems = []
     for child in people.values():
@@ -40,6 +54,13 @@ def check_parentage(dataset: dict[str, list[dict[str, Any]]], today: date) -> li
 
 
 def check_date_ranges(dataset: dict[str, list[dict[str, Any]]], today: date) -> list[Violation]:
+    """Report rows whose end date precedes their start date.
+
+    Checks ``data_inicio`` or ``data_entrada`` against ``data_fim`` or
+    ``data_saida``, preferring the first nonempty field in each pair. Non-mapping
+    rows are skipped. Only rows with both parsed dates are compared; invalid
+    dates propagate parsing errors.
+    """
     problems = []
     for table, rows in dataset.items():
         for row in rows:
@@ -53,6 +74,12 @@ def check_date_ranges(dataset: dict[str, list[dict[str, Any]]], today: date) -> 
 
 
 def check_physical_traits(dataset: dict[str, list[dict[str, Any]]], today: date) -> list[Violation]:
+    """Report physical rows outside inclusive height and weight bounds.
+
+    Raw ``altura`` values must be 50–250 and ``peso`` values 2–300; no unit
+    conversion is applied. Absent fields count as zero, while nonnumeric
+    values propagate conversion errors.
+    """
     return [
         {"rule": "physical_bounds", "person_id": row.get("pessoa_id")}
         for row in dataset.get("pessoa_caracteristica_fisica", [])
@@ -64,7 +91,14 @@ CHECKS: tuple[Check, ...] = (check_people, check_parentage, check_date_ranges, c
 
 
 def validate_dataset(dataset: dict[str, list[dict[str, Any]]], today: date | None = None) -> dict[str, Any]:
-    """Return a serializable quality report; no database is required."""
+    """Return row counts, violations, and a quality score without database access.
+
+    ``today`` defaults to January 1, 2026. Underscore-prefixed entries are
+    excluded from row counts. Every violation is counted as critical; the score
+    is 100 minus the violation percentage of counted rows (using at least one
+    as the denominator), rounded to two decimals and floored at zero. Errors
+    from individual checks propagate.
+    """
     anchor = today or date(2026, 1, 1)
     violations = [problem for check in CHECKS for problem in check(dataset, anchor)]
     table_rows = {name: rows for name, rows in dataset.items() if not name.startswith("_")}
