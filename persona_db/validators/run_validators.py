@@ -1,9 +1,9 @@
 """Pure-Python consistency checks for generated dataset snapshots."""
 from __future__ import annotations
 
+from collections.abc import Callable, Mapping
 from datetime import date
-from typing import Any, Callable, Mapping
-
+from typing import Any
 
 Violation = dict[str, Any]
 Check = Callable[[dict[str, list[dict[str, Any]]], date], list[Violation]]
@@ -30,16 +30,19 @@ def check_people(dataset: dict[str, list[dict[str, Any]]], today: date) -> list[
             problems.append({"rule": "birth_before_today", "person_id": person.get("id")})
         if died and born and died < born:
             problems.append({"rule": "death_after_birth", "person_id": person.get("id")})
+        if died and died > today:
+            problems.append({"rule": "death_not_after_today", "person_id": person.get("id")})
         if not person.get("esta_vivo", True) and died is None:
             problems.append({"rule": "dead_person_has_death_date", "person_id": person.get("id")})
     return problems
 
 
 def check_parentage(dataset: dict[str, list[dict[str, Any]]], today: date) -> list[Violation]:
-    """Report parents less than 14 * 365 days older than their children.
+    """Report parents younger than 14 on their children's birth dates.
 
     Only parents present in ``pessoa`` are checked. Violations identify both
-    people. Missing required IDs or dates and malformed dates propagate errors.
+    people. Missing dates are skipped; malformed dates propagate errors.
+    February 29 birthdays reach the next age on March 1 in non-leap years.
     """
     people = {p["id"]: p for p in dataset.get("pessoa", [])}
     problems = []
@@ -47,8 +50,14 @@ def check_parentage(dataset: dict[str, list[dict[str, Any]]], today: date) -> li
         for key in ("pai_id", "mae_id"):
             parent_id = child.get(key)
             if parent_id and parent_id in people:
-                delta = (_date(child["data_nascimento"]) - _date(people[parent_id]["data_nascimento"])).days
-                if delta < 14 * 365:
+                child_born = _date(child.get("data_nascimento"))
+                parent_born = _date(people[parent_id].get("data_nascimento"))
+                if child_born is None or parent_born is None:
+                    continue
+                age = child_born.year - parent_born.year - (
+                    (child_born.month, child_born.day) < (parent_born.month, parent_born.day)
+                )
+                if age < 14:
                     problems.append({"rule": "parent_at_least_14", "person_id": child["id"], "parent_id": parent_id})
     return problems
 
@@ -77,14 +86,17 @@ def check_physical_traits(dataset: dict[str, list[dict[str, Any]]], today: date)
     """Report physical rows outside inclusive height and weight bounds.
 
     Raw ``altura`` values must be 50–250 and ``peso`` values 2–300; no unit
-    conversion is applied. Absent fields count as zero, while nonnumeric
-    values propagate conversion errors.
+    conversion is applied. Missing, null, and nonnumeric values are violations.
     """
-    return [
-        {"rule": "physical_bounds", "person_id": row.get("pessoa_id")}
-        for row in dataset.get("pessoa_caracteristica_fisica", [])
-        if not 50 <= float(row.get("altura", 0)) <= 250 or not 2 <= float(row.get("peso", 0)) <= 300
-    ]
+    problems = []
+    for row in dataset.get("pessoa_caracteristica_fisica", []):
+        try:
+            valid = 50 <= float(row.get("altura")) <= 250 and 2 <= float(row.get("peso")) <= 300
+        except (TypeError, ValueError):
+            valid = False
+        if not valid:
+            problems.append({"rule": "physical_bounds", "person_id": row.get("pessoa_id")})
+    return problems
 
 
 CHECKS: tuple[Check, ...] = (check_people, check_parentage, check_date_ranges, check_physical_traits)

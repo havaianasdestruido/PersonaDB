@@ -7,11 +7,11 @@ SCHEMA := $(sort $(wildcard sql/schema/*.sql))
 setup:
 	PYTHONPATH="$(PYTHONPATH)" $(PYTHON) -m pip install -e '.[dev]'
 migrate:
-	@for file in $(SCHEMA); do echo "Applying $$file"; psql "$(DATABASE_URL)" -v ON_ERROR_STOP=1 -f "$$file"; done
+	@for file in $(SCHEMA); do echo "Applying $$file"; psql "$(DATABASE_URL)" -v ON_ERROR_STOP=1 -f "$$file" || exit $$?; done
 generate:
-	PYTHONPATH="$(PYTHONPATH)" $(PYTHON) -m persona_db.scripts.generate --people $${N_PESSOAS:-10000} --seed $${SEED:-7} --output dataset.json
+	PYTHONPATH="$(PYTHONPATH)" $(PYTHON) -m persona_db.scripts.generate --people $${N_PESSOAS:-10000} --seed $${SEED:-7} --today "$${PERSONADB_TODAY:-2026-01-01}" --output dataset.json
 validate:
-	PYTHONPATH="$(PYTHONPATH)" $(PYTHON) -m persona_db.scripts.generate --people 100 --seed $${SEED:-7} --output /tmp/personadb-validation.json
+	PYTHONPATH="$(PYTHONPATH)" $(PYTHON) -m persona_db.scripts.generate --people 100 --seed $${SEED:-7} --today "$${PERSONADB_TODAY:-2026-01-01}" --output /tmp/personadb-validation.json
 benchmark:
 	PYTHONPATH="$(PYTHONPATH)" $(PYTHON) -m persona_db.scripts.benchmark --people $${N_PESSOAS:-1000} --seed $${SEED:-7}
 reset:

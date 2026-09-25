@@ -9,15 +9,24 @@ represents a real person.
 
 ```bash
 cp persona_db/.env.example .env
-python -m pip install -e persona_db
-python -m persona_db.scripts.generate --people 100 --seed 7 --output dataset.json
-python -m pytest
+set -a
+. ./.env
+set +a
+python -m pip install -e './persona_db[dev]'
+make -C persona_db generate
+make -C persona_db validate
+make -C persona_db benchmark
+python -m pytest persona_db/tests
 ```
 
 Use `docker compose -f persona_db/docker-compose.yml up -d` to start PostgreSQL, then `make -C persona_db migrate` to apply the
-ordered schema files. `make generate`, `make validate`, and `make benchmark`
-provide repeatable local workflows. Configuration is read from `.env` by shell
-wrappers and uses `DATABASE_URL`, `SEED`, `N_PESSOAS`, and `PERSONADB_TODAY`.
+ordered schema files. `make -C persona_db generate`, `make -C persona_db validate`,
+and `make -C persona_db benchmark` provide repeatable local workflows.
+The shell commands above load and export `.env`; reload it after editing.
+`DATABASE_URL` configures migrations, `SEED` sets the generation seed,
+`N_PESSOAS` sets the population for generate and benchmark (validate uses 100),
+and `PERSONADB_TODAY` sets the simulation date. Generate and validate also pass
+that date to validation. Make does not load `.env` automatically.
 
 ## Architecture
 
