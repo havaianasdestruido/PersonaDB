@@ -16,7 +16,8 @@ python -m pytest
 
 Use `docker compose -f persona_db/docker-compose.yml up -d` to start PostgreSQL, then `make -C persona_db migrate` to apply the
 ordered schema files. `make generate`, `make validate`, and `make benchmark`
-provide repeatable local workflows. Configuration is read from `.env` by shell
+provide repeatable local workflows. `make export-parquet` installs/uses the
+`parquet` extra (`pip install -e 'persona_db[parquet]'`) to provide PyArrow. Configuration is read from `.env` by shell
 wrappers and uses `DATABASE_URL`, `SEED`, `N_PESSOAS`, and `PERSONADB_TODAY`.
 
 ## Architecture
@@ -25,7 +26,11 @@ wrappers and uses `DATABASE_URL`, `SEED`, `N_PESSOAS`, and `PERSONADB_TODAY`.
 reference data, and `generators/` creates table-shaped records in dependency
 order. `scripts/generate.py` orchestrates the available pipeline and writes a
 portable JSON snapshot. `validators/` checks core birth/death, parentage, date
-range, and physical-bound constraints before output is accepted.
+range, and physical-bound constraints before output is accepted. The SQL catalog
+covers the planned domains, while the currently orchestrated Python generation
+pipeline is intentionally narrower (hub, identity, genealogy, and health); the
+remaining domain-specific generators and full database round-trip validation
+remain planned work rather than being represented as implemented.
 
 ## Extending
 

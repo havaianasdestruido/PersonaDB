@@ -4,6 +4,8 @@ Ownership: Agent 2. Sibling agents may import SocioeconomicEngine.
 """
 from __future__ import annotations
 
+from typing import ClassVar
+
 import numpy as np
 
 from .constants import SOCIAL_CLASS_DIST
@@ -13,12 +15,12 @@ from .rng import SeededRNG
 class SocioeconomicEngine:
     """Deterministic socioeconomic attribute generator."""
 
-    SOCIAL_CLASSES: list[str] = ["A", "B1", "B2", "C1", "C2", "D_E"]
+    SOCIAL_CLASSES: ClassVar[list[str]] = ["A", "B1", "B2", "C1", "C2", "D_E"]
 
     # Mobility matrix: rows = parent class (A..D_E), cols = child class.
     # Diagonals are 0.55-0.65 (strong intergenerational stickiness); every
     # row sums to 1.0.
-    MOBILITY_MATRIX: list[list[float]] = [
+    MOBILITY_MATRIX: ClassVar[list[list[float]]] = [
         [0.62, 0.20, 0.10, 0.05, 0.02, 0.01],  # A parent
         [0.08, 0.55, 0.22, 0.10, 0.03, 0.02],  # B1 parent
         [0.03, 0.10, 0.58, 0.20, 0.06, 0.03],  # B2 parent
@@ -28,7 +30,7 @@ class SocioeconomicEngine:
     ]
 
     # Annual gross BRL salary shift per sector (log-scale, relative to 'aberto').
-    SECTOR_SHIFT: dict[str, float] = {
+    SECTOR_SHIFT: ClassVar[dict[str, float]] = {
         "aberto": 0.00,
         "agro": -0.08,
         "comercio": -0.02,

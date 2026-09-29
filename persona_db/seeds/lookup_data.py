@@ -590,7 +590,6 @@ DOENCAS: list[dict] = [
 def _fill_doencas() -> list[dict]:
     cats = ["cardiovascular","respiratoria","metabolica","infecciosa","mental","oncologica","autoimune","ortopedica","neurologica","dermatologica"]
     gravs = ["leve","moderado","grave"]
-    nomes_base = [d["doenca"] for d in DOENCAS]
     while len(DOENCAS) < 200:
         idx = len(DOENCAS)
         cat = cats[idx % len(cats)]

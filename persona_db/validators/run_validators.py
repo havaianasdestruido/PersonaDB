@@ -1,9 +1,9 @@
 """Pure-Python consistency checks for generated dataset snapshots."""
 from __future__ import annotations
 
+from collections.abc import Callable, Mapping
 from datetime import date
-from typing import Any, Callable, Mapping
-
+from typing import Any
 
 Violation = dict[str, Any]
 Check = Callable[[dict[str, list[dict[str, Any]]], date], list[Violation]]

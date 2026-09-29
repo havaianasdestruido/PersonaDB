@@ -18,46 +18,46 @@ from __future__ import annotations
 
 import os
 import sys
-from datetime import date, datetime, timedelta
+from datetime import date, timedelta
 from uuid import NAMESPACE_URL, uuid5
 
 # Permitir execução direta (python gen_00_pessoa.py) e import como pacote.
 try:  # pragma: no cover
+    from persona_db.engines.constants import BLOOD_GROUP_PRIORS
+    from persona_db.engines.criminal import CriminalEngine
+    from persona_db.engines.genetics import GeneticEngine
+    from persona_db.engines.geography import GeographyEngine
     from persona_db.engines.rng import SeededRNG, new_rng
     from persona_db.engines.socio import SocioeconomicEngine
-    from persona_db.engines.geography import GeographyEngine
-    from persona_db.engines.genetics import GeneticEngine
-    from persona_db.engines.criminal import CriminalEngine
-    from persona_db.engines.constants import BLOOD_GROUP_PRIORS
     from persona_db.seeds.lookup_data import (
-        MALE_FIRST_NAMES,
         FEMALE_FIRST_NAMES,
+        MALE_FIRST_NAMES,
         SURNAMES,
     )
     from persona_db.seeds.probability_tables import (
         SOCIAL_CLASSES,
-        trait_probs,
         mortality_qx,
+        trait_probs,
     )
 except ImportError:  # pragma: no cover
     _ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
     if _ROOT not in sys.path:
         sys.path.insert(0, _ROOT)
+    from persona_db.engines.constants import BLOOD_GROUP_PRIORS
+    from persona_db.engines.criminal import CriminalEngine
+    from persona_db.engines.genetics import GeneticEngine
+    from persona_db.engines.geography import GeographyEngine
     from persona_db.engines.rng import SeededRNG, new_rng
     from persona_db.engines.socio import SocioeconomicEngine
-    from persona_db.engines.geography import GeographyEngine
-    from persona_db.engines.genetics import GeneticEngine
-    from persona_db.engines.criminal import CriminalEngine
-    from persona_db.engines.constants import BLOOD_GROUP_PRIORS
     from persona_db.seeds.lookup_data import (
-        MALE_FIRST_NAMES,
         FEMALE_FIRST_NAMES,
+        MALE_FIRST_NAMES,
         SURNAMES,
     )
     from persona_db.seeds.probability_tables import (
         SOCIAL_CLASSES,
-        trait_probs,
         mortality_qx,
+        trait_probs,
     )
 
 # ---------------------------------------------------------------------------
@@ -69,7 +69,7 @@ DEFAULT_TODAY = date(2026, 1, 1)
 def simulation_today() -> date:
     raw = os.environ.get("PERSONADB_TODAY")
     if raw:
-        return datetime.strptime(raw, "%Y-%m-%d").date()
+        return date.fromisoformat(raw)
     return DEFAULT_TODAY
 
 

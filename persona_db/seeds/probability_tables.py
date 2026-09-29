@@ -264,7 +264,7 @@ INCOME_DIST: list[float] = _lorenz_curve(_GINI, 100)
 
 def income_share_percentile(p: float) -> float:
     """Participação acumulada da renda até o percentil *p* (0-100)."""
-    idx = max(0, min(100, int(round(p))))
+    idx = max(0, min(100, round(p)))
     return INCOME_DIST[idx]
 
 

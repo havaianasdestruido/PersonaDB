@@ -6,10 +6,11 @@ All randomness flows through SeededRNG (duck-typed parameter).
 from __future__ import annotations
 
 import math
+from typing import ClassVar
 
 try:  # pragma: no cover - fallback stub for import safety
     from .rng import SeededRNG
-except Exception:  # pragma: no cover
+except ImportError:  # pragma: no cover
     SeededRNG = object
 
 # ---------------------------------------------------------------------------
@@ -35,7 +36,7 @@ _PHENOTYPE_OF_GENOTYPE = {
 class GeneticEngine:
     """Fachada única para herança genética de traços físicos."""
 
-    PHENOTYPE_ENUMS = {
+    PHENOTYPE_ENUMS: ClassVar[dict[str, list[str]]] = {
         "cor_olhos": ["castanho", "azul", "verde", "avela", "cinza", "ambar"],
         "cor_cabelo": ["preto", "castanho", "loiro", "ruivo", "grisalho", "branco"],
         "mao_dominante": ["direita", "esquerda", "ambidestro"],
@@ -90,13 +91,16 @@ class GeneticEngine:
                 boost += 0.06
             if self._rng.beta_sample(2.0, 50.0) < 0.03 * boost:
                 pheno = self._rare_variant(pheno)
-            if pheno in ("castanho", "verde") and ancestry_african_pct:
-                if self._rng.bernoulli(min(0.05, 0.02 + ancestry_african_pct * 0.05)):
-                    pheno = self._rare_variant(pheno)
+            if (
+                pheno in ("castanho", "verde")
+                and ancestry_african_pct
+                and self._rng.bernoulli(min(0.05, 0.02 + ancestry_african_pct * 0.05))
+            ):
+                pheno = self._rare_variant(pheno)
         return pheno
 
     # -- Cabelo -----------------------------------------------------------
-    _HAIR_ORDER = ["preto", "castanho", "loiro", "ruivo"]
+    _HAIR_ORDER: ClassVar[list[str]] = ["preto", "castanho", "loiro", "ruivo"]
 
     def hair_color(
         self, hair_pai_str: str, hair_mae_str: str, ancestry_european_pct: float = 0.0
@@ -109,12 +113,14 @@ class GeneticEngine:
         ruivo_p = 0.01 * (0.5 + ancestry_european_pct)
         loiro_p = 0.04 * (0.3 + ancestry_european_pct) if base in ("castanho", "preto") else 0.0
 
-        if base in ("preto", "castanho") and ancestry_european_pct < 0.2:
-            if self._rng.bernoulli(loiro_p):
-                base = "loiro"
-        if base in ("preto", "castanho", "loiro"):
-            if self._rng.bernoulli(ruivo_p):
-                base = "ruivo"
+        if (
+            base in ("preto", "castanho")
+            and ancestry_european_pct < 0.2
+            and self._rng.bernoulli(loiro_p)
+        ):
+            base = "loiro"
+        if base in ("preto", "castanho", "loiro") and self._rng.bernoulli(ruivo_p):
+            base = "ruivo"
 
         r = self._rng.normal(0, 1)
         if r > 2.3:
@@ -132,7 +138,7 @@ class GeneticEngine:
 
     def handedness(self, pai_canhoto: bool, mae_canhota: bool) -> str:
         p_esq = self.handedness_prob(pai_canhoto, mae_canhota)
-        roll = self._rng.normal(0, 1)
+        self._rng.normal(0, 1)
         if self._rng.bernoulli(0.02):
             return "ambidestro"
         if self._rng.bernoulli(p_esq):
@@ -141,13 +147,13 @@ class GeneticEngine:
 
     # -- Tipo sanguíneo ABO + Rh -------------------------------------------
     # Fenótipo -> conjunto de possíveis genótipos
-    _ABO_GENOTYPES = {
+    _ABO_GENOTYPES: ClassVar[dict[str, list[tuple[str, str]]]] = {
         "A": [("IA", "IA"), ("IA", "i")],
         "B": [("IB", "IB"), ("IB", "i")],
         "AB": [("IA", "IB")],
         "O": [("i", "i")],
     }
-    _RH_GENOTYPES = {"positivo": [("D", "D"), ("D", "d")], "negativo": [("d", "d")]}
+    _RH_GENOTYPES: ClassVar[dict[str, list[tuple[str, str]]]] = {"positivo": [("D", "D"), ("D", "d")], "negativo": [("d", "d")]}
 
     @classmethod
     def _all_parent_gamete_pairs(cls, tipo: str) -> list[tuple[str, str]]:
@@ -231,9 +237,7 @@ class GeneticEngine:
             filho_abo = tipo_filho[0:2]
         if abo.get(filho_abo, 0.0) <= 0.0:
             return False
-        if rh.get(filho_rh, 0.0) <= 0.0:
-            return False
-        return True
+        return not rh.get(filho_rh, 0.0) <= 0.0
 
     # -- Altura (herança poligênica / mid-parent) ---------------------------
     def expected_child_height(self, altura_pai_cm: float, altura_mae_cm: float, sex_filho: str) -> float:
@@ -254,7 +258,7 @@ class GeneticEngine:
         return max(2.0, min(300.0, round(peso, 1)))
 
     # -- Doenças hereditárias (PRS simplificado) -----------------------------
-    _PRS_BETA = {
+    _PRS_BETA: ClassVar[dict[str, dict[str, float]]] = {
         "diabetes_t2": {"beta": 0.55, "threshold": 0.0},
         "hipertensao": {"beta": 0.50, "threshold": 0.05},
         "depressao": {"beta": 0.45, "threshold": 0.10},
@@ -268,7 +272,7 @@ class GeneticEngine:
         f = family_effects.get(condition, 0.0)
         geno_effect = 0.0
         if genotypes:
-            for k, v in genotypes.items():
+            for v in genotypes.values():
                 geno_effect += float(v)
         z = params["beta"] * geno_effect + f + self._rng.normal(0.0, 0.1)
         return 1.0 / (1.0 + math.exp(-z))

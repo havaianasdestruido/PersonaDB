@@ -8,5 +8,7 @@ Exposed helpers:
 - probability_tables: mobilidade, mortalidade, doenças, crimes, emprego,
   renda (Lorenz) e ancestralidade→traços.
 """
-from . import lookup_data  # noqa: F401
-from . import probability_tables  # noqa: F401
+from . import (
+    lookup_data,  # noqa: F401
+    probability_tables,  # noqa: F401
+)

@@ -5,7 +5,6 @@ optional deps so collection never fails.
 """
 from __future__ import annotations
 
-import math
 import os
 import sys
 
@@ -19,10 +18,9 @@ sys.path.insert(0, os.path.join(PROJECT_ROOT, "persona_db"))
 
 np = pytest.importorskip("numpy")
 
+from persona_db.engines.health import HealthEngine
 from persona_db.engines.rng import SeededRNG, new_rng
 from persona_db.engines.socio import SocioeconomicEngine
-from persona_db.engines.health import HealthEngine
-
 
 # ======================================================================
 # SeededRNG tests

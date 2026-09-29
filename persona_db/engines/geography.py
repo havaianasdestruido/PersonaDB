@@ -8,7 +8,7 @@ from typing import Any
 
 try:  # pragma: no cover - fallback stub
     from .rng import SeededRNG
-except Exception:  # pragma: no cover
+except ImportError:  # pragma: no cover
     SeededRNG = object
 
 # Roteiro de distribuição regional aproximada do Brasil
@@ -144,8 +144,7 @@ class GeographyEngine:
     @staticmethod
     def gravity_model(pop_i: float, pop_j: float, distance_km: float, k: float = 1e-3) -> float:
         """Gravity model: fluxo_ij = k * pop_i * pop_j / dist²."""
-        if distance_km <= 0.5:
-            distance_km = 0.5
+        distance_km = max(0.5, distance_km)
         return k * pop_i * pop_j / (distance_km ** 2)
 
     def migration_prob(self, age: float, class_label: str, job_opportunity_ratio: float = 1.0) -> float:

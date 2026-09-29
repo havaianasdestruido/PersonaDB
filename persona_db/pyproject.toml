@@ -14,9 +14,11 @@ dependencies = [
     "pydantic>=2",
     "rich",
     "tqdm",
+    "ijson",
 ]
 
 [project.optional-dependencies]
+parquet = ["pyarrow"]
 dev = ["pytest", "pytest-cov", "ruff", "black", "mypy", "snakeviz"]
 
 [build-system]
