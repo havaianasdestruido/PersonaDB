@@ -10,6 +10,7 @@ import argparse
 import csv
 import io
 import json
+import re
 import tarfile
 from collections import defaultdict
 from datetime import datetime, timezone
@@ -42,8 +43,22 @@ def export_csv(dataset: dict[str, list[dict[str, Any]]], target: Path) -> None:
             archive.addfile(info, io.BytesIO(data))
 
 
+_SAFE_COMPONENT = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.-]*$")
+
+
+def _destination(root: Path, component: str, suffix: str) -> Path:
+    """Validate a filename component and ensure its resolved path stays in root."""
+    if not _SAFE_COMPONENT.fullmatch(component) or component in {".", ".."}:
+        raise ValueError(f"Invalid output filename component: {component!r}")
+    resolved_root = root.resolve()
+    destination = (resolved_root / f"{component}{suffix}").resolve()
+    if not destination.is_relative_to(resolved_root):
+        raise ValueError(f"Output path escapes destination directory: {component!r}")
+    return destination
+
+
 def export_people(dataset: dict[str, list[dict[str, Any]]], target: Path) -> None:
-    """Write one aggregate JSON document per person."""
+    """Write one aggregate JSON document per person, replacing stale JSON outputs."""
     people = dataset.get("pessoa", [])
     grouped: dict[str, dict[str, list[dict[str, Any]]]] = defaultdict(dict)
     for table, rows in dataset.items():
@@ -54,18 +69,25 @@ def export_people(dataset: dict[str, list[dict[str, Any]]], target: Path) -> Non
             if person_id is not None:
                 grouped[str(person_id)].setdefault(table, []).append(row)
     target.mkdir(parents=True, exist_ok=True)
-    for person in people:
+    root = target.resolve()
+    destinations = [(person, _destination(root, str(person.get("id", "")), ".json")) for person in people]
+    for stale in root.glob("*.json"):
+        stale.unlink()
+    for person, destination in destinations:
         pid = str(person.get("id"))
-        (target / f"{pid}.json").write_text(json.dumps({"pessoa": person, **grouped.get(pid, {})}, ensure_ascii=False, indent=2, default=str) + "\n", encoding="utf-8")
+        destination.write_text(json.dumps({"pessoa": person, **grouped.get(pid, {})}, ensure_ascii=False, indent=2, default=str) + "\n", encoding="utf-8")
 
 
 def export_parquet(dataset: dict[str, list[dict[str, Any]]], target: Path) -> None:
-    """Write one parquet file per nonempty table."""
+    """Write one parquet file per nonempty table, removing stale parquet outputs."""
     import pandas as pd
     target.mkdir(parents=True, exist_ok=True)
-    for table, rows in dataset.items():
-        if rows:
-            pd.DataFrame(rows).to_parquet(target / f"{table}.parquet", index=False)
+    root = target.resolve()
+    destinations = [(table, rows, _destination(root, table, ".parquet")) for table, rows in dataset.items() if rows]
+    for stale in root.glob("*.parquet"):
+        stale.unlink()
+    for table, rows, destination in destinations:
+        pd.DataFrame(rows).to_parquet(destination, index=False)
 
 
 def main() -> int:

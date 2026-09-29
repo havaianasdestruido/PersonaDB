@@ -16,7 +16,8 @@ python -m pytest
 
 Use `docker compose -f persona_db/docker-compose.yml up -d` to start PostgreSQL, then `make -C persona_db migrate` to apply the
 ordered schema files. `make generate`, `make validate`, and `make benchmark`
-provide repeatable local workflows. Configuration is read from `.env` by shell
+provide repeatable local workflows. `make export-parquet` installs/uses the
+`parquet` extra (`pip install -e 'persona_db[parquet]'`) to provide PyArrow. Configuration is read from `.env` by shell
 wrappers and uses `DATABASE_URL`, `SEED`, `N_PESSOAS`, and `PERSONADB_TODAY`.
 
 ## Architecture

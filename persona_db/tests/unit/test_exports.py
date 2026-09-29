@@ -1,7 +1,14 @@
 import json
 import tarfile
 
-from persona_db.scripts.export import export_csv, export_people
+import pytest
+
+from persona_db.scripts.export import _destination, export_csv, export_people
+
+
+def test_output_component_rejects_path_traversal(tmp_path):
+    with pytest.raises(ValueError):
+        _destination(tmp_path, "../outside", ".json")
 
 
 def test_csv_archive_and_person_aggregation(tmp_path):
@@ -12,7 +19,12 @@ def test_csv_archive_and_person_aggregation(tmp_path):
         assert set(tar.getnames()) == {"pessoa.csv", "pessoa_idade.csv"}
         assert b"Ana" in tar.extractfile("pessoa.csv").read()
     out = tmp_path / "people"
+    out.mkdir()
+    (out / "stale.json").write_text("{}")
+    (out / "keep.txt").write_text("keep")
     export_people(data, out)
     payload = json.loads((out / "p1.json").read_text())
     assert payload["pessoa"]["nome"] == "Ana"
     assert payload["pessoa_idade"][0]["idade"] == 20
+    assert not (out / "stale.json").exists()
+    assert (out / "keep.txt").read_text() == "keep"

@@ -1,7 +1,8 @@
-"""Load JSON snapshots into PostgreSQL using parameterized batch inserts.
+"""Stream JSON table rows into PostgreSQL using bounded insert batches.
 
-This loader intentionally accepts only known, unqualified table identifiers and
-uses psycopg2's execute_values for bounded-memory batches. Apply schema first.
+This loader accepts unqualified table identifiers and uses ijson to avoid
+loading the whole dataset (or even one complete table) into memory. Apply the
+schema first. Install dependencies with ``pip install -e persona_db``.
 """
 from __future__ import annotations
 
@@ -10,41 +11,82 @@ import json
 import os
 import re
 from pathlib import Path
-from typing import Any
+from typing import Any, Iterator
 
 _IDENTIFIER = re.compile(r"^[a-z_][a-z0-9_]*$")
 
 
+def _table_names(source: Path) -> list[str]:
+    """Read top-level JSON keys without materializing their values."""
+    import ijson
+
+    names = []
+    with source.open("rb") as stream:
+        for prefix, event, value in ijson.parse(stream):
+            if prefix == "" and event == "map_key":
+                names.append(value)
+    return sorted(names, key=lambda name: (name != "pessoa", name))
+
+
+def _rows(source: Path, table: str) -> Iterator[dict[str, Any]]:
+    import ijson
+
+    with source.open("rb") as stream:
+        yield from ijson.items(stream, f"{table}.item")
+
+
+def _columns(source: Path, table: str) -> list[str]:
+    """Discover a table's union of keys while keeping only column names in memory."""
+    columns: set[str] = set()
+    for row in _rows(source, table):
+        if not isinstance(row, dict):
+            raise ValueError(f"Every {table} row must be an object")
+        columns.update(row)
+    result = sorted(columns)
+    if not result or any(not _IDENTIFIER.fullmatch(column) for column in result):
+        raise ValueError(f"Unsafe or empty column set for {table}")
+    return result
+
+
 def load_dataset(database_url: str, source: Path, page_size: int = 1000) -> int:
-    """Insert table rows from a generated JSON snapshot in one transaction."""
+    """Insert table rows from a JSON snapshot in bounded-memory batches."""
     if page_size < 1:
         raise ValueError("page_size must be positive")
     try:
         import psycopg2
         from psycopg2.extras import execute_values
+        import ijson  # noqa: F401 - validate the streaming parser dependency early
     except ImportError as exc:
         raise RuntimeError("Install persona-db dependencies to use PostgreSQL loading") from exc
-    dataset: dict[str, list[dict[str, Any]]] = json.loads(source.read_text(encoding="utf-8"))
+
     total = 0
     with psycopg2.connect(database_url) as conn:
         with conn.cursor() as cur:
-            # Natural dependency order: persona first, then remaining entities.
-            for table in sorted(dataset, key=lambda t: (t != "pessoa", t)):
-                rows = dataset[table]
-                if table.startswith("_") or not rows:
+            for table in _table_names(source):
+                if table.startswith("_"):
                     continue
                 if not _IDENTIFIER.fullmatch(table):
                     raise ValueError(f"Unsafe table name: {table!r}")
-                if any(not isinstance(row, dict) for row in rows):
-                    raise ValueError(f"Every {table} row must be an object")
-                columns = sorted({key for row in rows for key in row})
-                if not columns or any(not _IDENTIFIER.fullmatch(c) for c in columns):
-                    raise ValueError(f"Unsafe or empty column set for {table}")
-                # Missing keys are SQL NULL; JSON values are explicitly adapted.
-                values = [tuple(json.dumps(row.get(c), ensure_ascii=False) if isinstance(row.get(c), (dict, list)) else row.get(c) for c in columns) for row in rows]
+                columns = _columns(source, table)
+                if not columns:
+                    continue
                 sql = f'INSERT INTO "{table}" ({", ".join(chr(34) + c + chr(34) for c in columns)}) VALUES %s'
-                execute_values(cur, sql, values, page_size=page_size)
-                total += len(values)
+                batch: list[tuple[Any, ...]] = []
+                for row in _rows(source, table):
+                    if not isinstance(row, dict):
+                        raise ValueError(f"Every {table} row must be an object")
+                    batch.append(tuple(
+                        json.dumps(row.get(c), ensure_ascii=False)
+                        if isinstance(row.get(c), (dict, list)) else row.get(c)
+                        for c in columns
+                    ))
+                    if len(batch) == page_size:
+                        execute_values(cur, sql, batch, page_size=page_size)
+                        total += len(batch)
+                        batch.clear()
+                if batch:
+                    execute_values(cur, sql, batch, page_size=page_size)
+                    total += len(batch)
     return total
 
 
