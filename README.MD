@@ -25,7 +25,11 @@ wrappers and uses `DATABASE_URL`, `SEED`, `N_PESSOAS`, and `PERSONADB_TODAY`.
 reference data, and `generators/` creates table-shaped records in dependency
 order. `scripts/generate.py` orchestrates the available pipeline and writes a
 portable JSON snapshot. `validators/` checks core birth/death, parentage, date
-range, and physical-bound constraints before output is accepted.
+range, and physical-bound constraints before output is accepted. The SQL catalog
+covers the planned domains, while the currently orchestrated Python generation
+pipeline is intentionally narrower (hub, identity, genealogy, and health); the
+remaining domain-specific generators and full database round-trip validation
+remain planned work rather than being represented as implemented.
 
 ## Extending
 
