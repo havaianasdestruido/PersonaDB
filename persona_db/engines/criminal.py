@@ -7,9 +7,9 @@ from __future__ import annotations
 import math
 
 try:  # pragma: no cover - fallback stub
-    from .rng import SeededRNG
     from .constants import RISK_LOGLIT
-except Exception:  # pragma: no cover
+    from .rng import SeededRNG
+except ImportError:  # pragma: no cover
     SeededRNG = object
     RISK_LOGLIT = {}
 

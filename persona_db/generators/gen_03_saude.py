@@ -19,14 +19,12 @@ from datetime import date, timedelta
 
 try:
     from persona_db.engines.rng import SeededRNG, new_rng
-    from persona_db.engines.health import HealthEngine
     from persona_db.generators.gen_00_pessoa import simulation_today
 except ImportError:
     _ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
     if _ROOT not in sys.path:
         sys.path.insert(0, _ROOT)
     from persona_db.engines.rng import SeededRNG, new_rng
-    from persona_db.engines.health import HealthEngine
     from persona_db.generators.gen_00_pessoa import simulation_today
 
 from uuid import NAMESPACE_URL, uuid5

@@ -2,7 +2,6 @@ import json
 import tarfile
 
 import pytest
-
 from persona_db.scripts.export import _destination, export_csv, export_people
 
 

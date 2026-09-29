@@ -5,7 +5,6 @@ import argparse
 import os
 from pathlib import Path
 
-
 _FK_QUERY = """SELECT kcu.column_name, ccu.table_name, ccu.column_name
   FROM information_schema.table_constraints tc
   JOIN information_schema.key_column_usage kcu ON tc.constraint_name=kcu.constraint_name AND tc.constraint_schema=kcu.constraint_schema

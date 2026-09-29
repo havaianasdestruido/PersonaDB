@@ -5,6 +5,7 @@ Ownership: Agent 2. Sibling agents may import HealthEngine.
 from __future__ import annotations
 
 import math
+from typing import ClassVar
 
 from .constants import DISEASE_TRANCHES
 from .rng import SeededRNG
@@ -13,7 +14,7 @@ from .rng import SeededRNG
 class HealthEngine:
     """Deterministic health-process generator."""
 
-    SEVERITY_LEVELS: list[str] = ["leve", "moderado", "grave"]
+    SEVERITY_LEVELS: ClassVar[list[str]] = ["leve", "moderado", "grave"]
     CHRONIC_DISEASES: tuple[str, ...] = ("diabetes", "hipertension", "depression")
 
     # ------------------------------------------------------------------
@@ -74,7 +75,7 @@ class HealthEngine:
                 HealthEngine.lifetime_hazard(t, sex, d) for d in DISEASE_TRANCHES
             )
 
-        n = int(math.floor(age))
+        n = math.floor(age)
         cumulative_hazard = 0.0
         for t in range(n):
             cumulative_hazard += 0.5 * (force(float(t)) + force(float(t + 1)))
@@ -94,7 +95,7 @@ class HealthEngine:
     def _cumulative_hazard(age: float, sex: str, disease: str) -> float:
         """Lifetime cumulative hazard for *disease* up to *age* (annual scale)."""
         age = max(float(age), 0.0)
-        n = int(math.floor(age))
+        n = math.floor(age)
         total = 0.0
         for t in range(n):
             total += 0.5 * (

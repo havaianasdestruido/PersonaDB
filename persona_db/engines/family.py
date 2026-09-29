@@ -5,10 +5,11 @@ Owned by Agent 3. Signature-stable for generators/validators.
 from __future__ import annotations
 
 import math
+from typing import ClassVar
 
 try:  # pragma: no cover - fallback stub
     from .rng import SeededRNG
-except Exception:  # pragma: no cover
+except ImportError:  # pragma: no cover
     SeededRNG = object
 
 _SOCIAL_ORDER = ["A", "B1", "B2", "C1", "C2", "D_E"]
@@ -24,7 +25,7 @@ class FamilyEngine:
     SAME_EDU_PROB = 0.55
     SAME_RELIGION_PROB = 0.61
 
-    _POSSON_LAMBDA = {("A", "B1", "B2"): 1.4, ("C1",): 1.9, ("C2", "D_E"): 2.6}
+    _POSSON_LAMBDA: ClassVar[dict[tuple[str, ...], float]] = {("A", "B1", "B2"): 1.4, ("C1",): 1.9, ("C2", "D_E"): 2.6}
 
     def __init__(self, rng: SeededRNG):
         self._rng = rng

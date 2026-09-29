@@ -16,7 +16,7 @@ from __future__ import annotations
 import os
 import sys
 from dataclasses import dataclass, field
-from datetime import date, datetime, timedelta
+from datetime import date, timedelta
 
 try:  # pragma: no cover
     from persona_db.engines.rng import SeededRNG, new_rng
@@ -76,7 +76,7 @@ class Genealogia:
 
 
 def _birth(persona: dict) -> date:
-    return datetime.strptime(persona["data_nascimento"], "%Y-%m-%d").date()
+    return date.fromisoformat(persona["data_nascimento"])
 
 
 def generate(personas: list[dict], seed: int = 7, today: date | None = None) -> dict[str, list[dict]]:
@@ -116,7 +116,7 @@ def _condicoes(out: Genealogia, master: SeededRNG) -> None:
 # familia + membro_familia
 # ---------------------------------------------------------------------------
 def _familias(personas: list[dict], out: Genealogia, master: SeededRNG) -> None:
-    rng = master.fork("familias", "split")
+    master.fork("familias", "split")
     sobrenomes: dict[str, list[dict]] = {}
     for p in personas:
         sobrenomes.setdefault(p["ultimo_sobrenome"], []).append(p)
@@ -242,7 +242,7 @@ def _ancestralidade(personas: list[dict], out: Genealogia, master: SeededRNG) ->
 # predisposicao_genetica
 # ---------------------------------------------------------------------------
 def _predisposicoes(personas: list[dict], out: Genealogia, master: SeededRNG) -> None:
-    cond_ids = {c["nome_condicao_ficticia"]: i for i, c in enumerate(out.rows["condicao_genetica"])}
+    {c["nome_condicao_ficticia"]: i for i, c in enumerate(out.rows["condicao_genetica"])}
     n_cond = len(out.rows["condicao_genetica"])
     for p in personas:
         rng = master.fork(p["id"], "gen02-predispos")
@@ -264,7 +264,7 @@ def _predisposicoes(personas: list[dict], out: Genealogia, master: SeededRNG) ->
 # heranca + itens (personas falecidas com herdeiro na família)
 # ---------------------------------------------------------------------------
 def _heranca(personas: list[dict], out: Genealogia, master: SeededRNG, today: date) -> None:
-    id_map = {p["id"]: p for p in personas}
+    {p["id"]: p for p in personas}
     alive_pool = [p for p in personas if p["esta_vivo"]]
     for p in personas:
         if p["esta_vivo"] or not p.get("data_obito"):
@@ -279,7 +279,7 @@ def _heranca(personas: list[dict], out: Genealogia, master: SeededRNG, today: da
             continue
         heir = rng.choice(heirs)
         heranca_id = f"HERC-{len(out.rows['heranca']):07d}"
-        data = max(_birth(p), datetime.strptime(p["data_obito"], "%Y-%m-%d").date())
+        data = max(_birth(p), date.fromisoformat(p["data_obito"]))
         data = data + timedelta(days=rng.integer(20, 400))
         out.rows["heranca"].append({
             "pessoa_id_herdeiro": heir["id"],
@@ -291,7 +291,7 @@ def _heranca(personas: list[dict], out: Genealogia, master: SeededRNG, today: da
         valor = max(1_000.0, round(base * rng.log_normal(0.0, 0.6), 2))
         n_itens = rng.integer(1, 3)
         for k in range(n_itens):
-            tipo, w = rng.choice(_BENS)
+            tipo, _w = rng.choice(_BENS)
             parcela = valor / n_itens
             out.rows["heranca_item"].append({
                 "heranca_id": heranca_id,

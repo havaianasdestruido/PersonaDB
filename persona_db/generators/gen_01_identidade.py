@@ -119,8 +119,7 @@ def _doc_validade(tipo: str, idx: int, rng: SeededRNG, today: date) -> date | No
 
 def _pessoa_documento(persona: dict, rng: SeededRNG, today: date, idx: int) -> list[dict]:
     ids = persona["id"]
-    from datetime import datetime
-    nasc = datetime.strptime(persona["data_nascimento"], "%Y-%m-%d").date()
+    nasc = date.fromisoformat(persona["data_nascimento"])
     idade = (today - nasc).days / 365.25
 
     docs: list[dict] = []
@@ -299,6 +298,5 @@ if __name__ == "__main__":  # pragma: no cover
     docs = generate_all(ps)
     print("documentos:", len(docs["pessoa_documento"]), "| biometria:",
           len(docs["pessoa_biometria"]), "| idiomas:", len(docs["pessoa_idioma"]))
-    from persona_db.seeds.lookup_data import EMPRESAS
     cpf = docs["pessoa_documento"][0 if docs["pessoa_documento"][0]["tipo"] == "CPF" else 1]["numero_ficticio"]
     print("primeiro CPF:", cpf)

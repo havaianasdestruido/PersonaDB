@@ -12,10 +12,10 @@ PROJECT_ROOT = Path(__file__).resolve().parents[3]
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
-from persona_db.engines.rng import SeededRNG  # noqa: E402
-from persona_db.engines.genetics import GeneticEngine  # noqa: E402
-from persona_db.engines.family import FamilyEngine  # noqa: E402
-from persona_db.engines.geography import GeographyEngine, CITY_SET, NEIGHBORHOODS  # noqa: E402
+from persona_db.engines.family import FamilyEngine
+from persona_db.engines.genetics import GeneticEngine
+from persona_db.engines.geography import CITY_SET, NEIGHBORHOODS, GeographyEngine
+from persona_db.engines.rng import SeededRNG
 
 
 def _rng(seed=42):

@@ -11,8 +11,9 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+from collections.abc import Sequence
 from pathlib import Path
-from typing import Any, Sequence
+from typing import Any
 
 import numpy as np
 
@@ -34,7 +35,7 @@ class SeededRNG:
     # Forking
     # ------------------------------------------------------------------
 
-    def fork(self, persona_id: str, domain: str, salt: str = "") -> "SeededRNG":
+    def fork(self, persona_id: str, domain: str, salt: str = "") -> SeededRNG:
         """Return a new SeededRNG derived deterministically from this one.
 
         seed_int = int.from_bytes(blake2b(master|persona|domain|salt)[:8], 'big')
