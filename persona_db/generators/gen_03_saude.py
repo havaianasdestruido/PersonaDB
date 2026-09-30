@@ -16,18 +16,19 @@ from __future__ import annotations
 import os
 import sys
 from datetime import date, timedelta
+from uuid import NAMESPACE_URL, uuid5
 
 try:
+    from persona_db.engines.health import HealthEngine
     from persona_db.engines.rng import SeededRNG, new_rng
     from persona_db.generators.gen_00_pessoa import simulation_today
 except ImportError:
     _ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
     if _ROOT not in sys.path:
         sys.path.insert(0, _ROOT)
+    from persona_db.engines.health import HealthEngine
     from persona_db.engines.rng import SeededRNG, new_rng
     from persona_db.generators.gen_00_pessoa import simulation_today
-
-from uuid import NAMESPACE_URL, uuid5
 
 # ---------------------------------------------------------------------------
 # Catálogos determinísticos
@@ -117,8 +118,11 @@ _ALERGIAS = [
     ("Glúten Simulado", "leve"),
 ]
 _ESPECIALIDADES = ["cardiologia", "ortopedia", "neurologia", "ginecologia", "clínica geral"]
-_TIPO_CIRURGIA = ["apendicectomia fictícia", "laparoscopia simulada", "cesariana fictícia",
-                  "ortopédica simulada", "cardíaca fictícia"]
+_CIRURGIAO_IDS = [str(uuid5(NAMESPACE_URL, f"cirurgiao-{esp}")) for esp in _ESPECIALIDADES]
+_TIPO_CIRURGIA = [
+    "apendicectomia fictícia", "laparoscopia simulada", "cesariana fictícia",
+    "ortopédica simulada", "cardíaca fictícia",
+]
 
 
 def _isodate(d: date) -> str:
@@ -136,14 +140,20 @@ def _death(p: dict) -> date | None:
 
 
 def _person_active_range(p: dict, today: date) -> tuple[date, date]:
-    start = _birth(p) + timedelta(days=5 * 365)
-    end = _death(p) or today
-    if start >= end:
-        start = end - timedelta(days=30)
+    """Retorna janela temporal válida `[start, end]` dentro da vida da persona."""
+    born = _birth(p)
+    end = min(_death(p) or today, today)
+    if end <= born:
+        return born, born
+    start = min(born + timedelta(days=365), born + timedelta(days=max(1, (end - born).days // 4)))
+    if start > end:
+        start = born
     return start, end
 
 
 def _rand_date(rng: SeededRNG, start: date, end: date) -> date:
+    if start >= end:
+        return start
     span = max(1, (end - start).days)
     return start + timedelta(days=rng.integer(0, span - 1))
 
@@ -153,6 +163,7 @@ def _rand_date(rng: SeededRNG, start: date, end: date) -> date:
 # ---------------------------------------------------------------------------
 
 def generate(personas: list[dict], seed: int = 3, today: date | None = None) -> dict[str, list[dict]]:
+    """Gera todos os registros de saúde e enriquece personas com `impactos_saude`."""
     today = today or simulation_today()
     master = new_rng(seed)
 
@@ -173,16 +184,23 @@ def generate(personas: list[dict], seed: int = 3, today: date | None = None) -> 
     for p in personas:
         rng = master.fork(p["id"], "gen03")
         start, end = _person_active_range(p, today)
-        age = (today - _birth(p)).days // 365
+        age = max(0, (end - _birth(p)).days // 365)
 
-        _doencas_pessoa(p, rows, rng, start, end, age)
+        diag_dates: list[date] = []
+        has_grave = _doencas_pessoa(p, rows, rng, start, end, age, diag_dates)
         _exames(p, rows, rng, start, end)
-        _prescricoes(p, rows, rng, start, end)
-        _vacinas(p, rows, rng, start, end, age)
+        has_chronic = _condicoes_cronicas(p, rows, rng, start, end, age, diag_dates)
+        has_mental = _saude_mental(p, rows, rng, start, end, age, diag_dates)
+        _prescricoes(p, rows, rng, start, end, diag_dates)
+        _vacinas(p, rows, rng, _birth(p), end, age)
         _alergias_pessoa(p, rows, rng)
-        _condicoes_cronicas(p, rows, rng, start, end, age)
-        _saude_mental(p, rows, rng, start, end, age)
         _seguro(p, rows, rng, start, end)
+
+        impact_rng = master.fork(p["id"], "gen03-impact")
+        p["tem_doenca_grave"] = has_grave
+        p["tem_doenca_cronica"] = has_chronic
+        p["tem_transtorno_mental"] = has_mental
+        p["impactos_saude"] = HealthEngine.chronic_impact(impact_rng, has_chronic or has_grave)
 
     return rows
 
@@ -202,8 +220,10 @@ def _build_catalogs(rows: dict) -> None:
         rows["hospital"].append({"id": hid, "nome": nome, "endereco_id": None, "tipo": tipo})
         for j in range(10):
             lid = str(uuid5(NAMESPACE_URL, f"leito-{hid}-{j}"))
-            rows["leito"].append({"id": lid, "hospital_id": hid,
-                                  "numero": f"{(i*10+j+1):03d}", "ala": ["A", "B", "C"][j % 3]})
+            rows["leito"].append({
+                "id": lid, "hospital_id": hid,
+                "numero": f"{(i * 10 + j + 1):03d}", "ala": ["A", "B", "C"][j % 3],
+            })
 
     for (nome, tipo), vid in zip(_VACINAS, _VAC_IDS):
         rows["vacina"].append({"id": vid, "nome": nome, "tipo": tipo})
@@ -212,39 +232,55 @@ def _build_catalogs(rows: dict) -> None:
         rows["plano_saude"].append({"id": pid, "operadora": nome, "cobertura": cob, "mensalidade": mens})
 
     conv_id = str(uuid5(NAMESPACE_URL, "convenio-principal"))
-    rows["convenio"].append({"id": conv_id, "nome": "Convênio Fictício Nacional",
-                              "hospitais_conveniados": len(_HOSPITAIS)})
+    rows["convenio"].append({
+        "id": conv_id, "nome": "Convênio Fictício Nacional",
+        "hospitais_conveniados": len(_HOSPITAIS),
+    })
 
-    for esp in _ESPECIALIDADES:
-        cid = str(uuid5(NAMESPACE_URL, f"cirurgiao-{esp}"))
+    for esp, cid in zip(_ESPECIALIDADES, _CIRURGIAO_IDS):
         rows["cirurgiao"].append({"id": cid, "nome": f"Dr(a). Simulado {esp.title()}", "especialidade": esp})
 
 
-def _doencas_pessoa(p, rows, rng, start, end, age):
+def _doencas_pessoa(
+    p: dict,
+    rows: dict,
+    rng: SeededRNG,
+    start: date,
+    end: date,
+    age: int,
+    diag_dates: list[date],
+) -> bool:
     n = rng.integer(0, 2) if age < 18 else rng.integer(0, 3)
     chosen = list(range(len(_DOENCAS)))
     rng._rng.shuffle(chosen)
+    has_grave = False
     for i in chosen[:n]:
         did = _DOENCA_IDS[i]
         diag_date = _rand_date(rng, start, end)
+        diag_dates.append(diag_date)
         dp_id = str(uuid5(NAMESPACE_URL, f"dp-{p['id']}-{did}"))
-        estagio = rng.choice(["inicial", "moderado", "avançado"])
-        status = "ativo" if not p.get("data_obito") else rng.choice(["ativo", "resolvido"])
+        estagio = str(rng.choice(["inicial", "moderado", "avançado"]))
+        if estagio == "avançado":
+            has_grave = True
+        status = "ativo" if not p.get("data_obito") else str(rng.choice(["ativo", "resolvido"]))
         rows["doenca_pessoa"].append({
             "id": dp_id, "pessoa_id": p["id"], "doenca_id": did,
             "data_diagnostico": _isodate(diag_date),
-            "estagio": str(estagio), "status": str(status),
+            "estagio": estagio, "status": status,
         })
-        trat_start = diag_date + timedelta(days=rng.integer(1, 30))
-        trat_end = trat_start + timedelta(days=rng.integer(30, 365)) if rng.bernoulli(0.7) else None
+        trat_start = min(end, diag_date + timedelta(days=rng.integer(1, 30)))
+        trat_end = None
+        if rng.bernoulli(0.7):
+            trat_end = min(end, trat_start + timedelta(days=rng.integer(30, 365)))
+            trat_end = max(trat_end, trat_start)
+        tipo_trat = str(rng.choice(["medicamentoso", "cirúrgico", "fisioterapia", "acompanhamento"]))
         rows["tratamento"].append({
             "id": str(uuid5(NAMESPACE_URL, f"trat-{dp_id}")),
             "pessoa_id": p["id"], "doenca_pessoa_id": dp_id,
-            "tipo": str(rng.choice(["medicamentoso", "cirúrgico", "fisioterapia", "acompanhamento"])),
+            "tipo": tipo_trat,
             "data_inicio": _isodate(trat_start),
             "data_fim": _isodate(trat_end) if trat_end else None,
         })
-        # sintoma_ocorrencia
         if rng.bernoulli(0.6):
             s_idx = rng.integer(0, len(_SINTOMAS) - 1)
             rows["sintoma_ocorrencia"].append({
@@ -255,8 +291,44 @@ def _doencas_pessoa(p, rows, rng, start, end, age):
                 "intensidade": str(rng.choice(["leve", "moderada", "intensa"])),
             })
 
+        # Se tratamento cirúrgico ou estágio avançado e houver margem antes de `end`, gera cirurgia e internação
+        if (tipo_trat == "cirúrgico" or estagio == "avançado") and (end - trat_start).days >= 5:
+            hosp_idx = rng.integer(0, len(_HOSP_IDS) - 1)
+            hosp_id = _HOSP_IDS[hosp_idx]
+            leito_id = str(uuid5(NAMESPACE_URL, f"leito-{hosp_id}-{rng.integer(0, 9)}"))
+            cirurgiao_id = _CIRURGIAO_IDS[rng.integer(0, len(_CIRURGIAO_IDS) - 1)]
+            dt_entrada = trat_start
+            stay_days = min(rng.integer(2, 14), max(1, (end - dt_entrada).days))
+            dt_saida = dt_entrada + timedelta(days=stay_days)
+            tipo_cir = str(rng.choice(_TIPO_CIRURGIA))
+            rows["cirurgia"].append({
+                "id": str(uuid5(NAMESPACE_URL, f"cir-{dp_id}")),
+                "pessoa_id": p["id"],
+                "tipo": tipo_cir,
+                "data": _isodate(dt_entrada),
+                "cirurgiao_id": cirurgiao_id,
+                "hospital_id": hosp_id,
+            })
+            int_id = str(uuid5(NAMESPACE_URL, f"int-{dp_id}"))
+            rows["internacao"].append({
+                "id": int_id,
+                "pessoa_id": p["id"],
+                "hospital_id": hosp_id,
+                "leito_id": leito_id,
+                "data_entrada": _isodate(dt_entrada),
+                "data_saida": _isodate(dt_saida),
+                "motivo": f"Tratamento de {_DOENCAS[i][0]}",
+            })
+            rows["alta_hospitalar"].append({
+                "id": str(uuid5(NAMESPACE_URL, f"alta-{int_id}")),
+                "internacao_id": int_id,
+                "data": _isodate(dt_saida),
+                "condicao_saida": str(rng.choice(["estável", "recuperado", "acompanhamento ambulatorial"])),
+            })
+    return has_grave
 
-def _exames(p, rows, rng, start, end):
+
+def _exames(p: dict, rows: dict, rng: SeededRNG, start: date, end: date) -> None:
     for k in range(rng.integer(1, 4)):
         ex_id = str(uuid5(NAMESPACE_URL, f"ex-{p['id']}-{k}"))
         edate = _rand_date(rng, start, end)
@@ -275,14 +347,22 @@ def _exames(p, rows, rng, start, end):
         })
 
 
-def _prescricoes(p, rows, rng, start, end):
-    if not rng.bernoulli(0.55):
+def _prescricoes(
+    p: dict,
+    rows: dict,
+    rng: SeededRNG,
+    start: date,
+    end: date,
+    diag_dates: list[date],
+) -> None:
+    if not diag_dates or not rng.bernoulli(0.65):
         return
     med_idx = rng.integer(0, len(_MED_IDS) - 1)
     med_id = _MED_IDS[med_idx]
     presc_id = str(uuid5(NAMESPACE_URL, f"presc-{p['id']}-{med_id}"))
     medico_id = str(uuid5(NAMESPACE_URL, f"medico-{p['id']}"))
-    pdate = _rand_date(rng, start, end)
+    min_diag = min(diag_dates)
+    pdate = _rand_date(rng, min_diag, end)
     rows["prescricao"].append({
         "id": presc_id, "pessoa_id": p["id"], "medicamento_id": med_id,
         "medico_id": medico_id, "data": _isodate(pdate),
@@ -296,22 +376,27 @@ def _prescricoes(p, rows, rng, start, end):
     })
 
 
-def _vacinas(p, rows, rng, start, end, age):
+def _vacinas(p: dict, rows: dict, rng: SeededRNG, birth: date, end: date, age: int) -> None:
     n = rng.integer(1, 4)
+    vac_idx = rng.integer(0, len(_VAC_IDS) - 1)
+    vac_id = _VAC_IDS[vac_idx]
+    span_days = max(1, (end - birth).days)
+    cur_date = birth + timedelta(days=min(60, span_days // 4))
     for k in range(n):
-        vac_idx = rng.integer(0, len(_VAC_IDS) - 1)
-        vdate = _rand_date(rng, start, end)
+        if cur_date > end:
+            break
         rows["vacina_dose"].append({
             "id": str(uuid5(NAMESPACE_URL, f"vacdose-{p['id']}-{k}")),
             "pessoa_id": p["id"],
-            "vacina_id": _VAC_IDS[vac_idx],
-            "data": _isodate(vdate),
+            "vacina_id": vac_id,
+            "data": _isodate(cur_date),
             "dose_numero": k + 1,
             "local_aplicacao": str(rng.choice(["UBS Fictícia", "Hospital Simulado", "Farmácia Inventada"])),
         })
+        cur_date = cur_date + timedelta(days=rng.integer(30, 120))
 
 
-def _alergias_pessoa(p, rows, rng):
+def _alergias_pessoa(p: dict, rows: dict, rng: SeededRNG) -> None:
     """Attempt to add a sampled allergy and optional reaction to ``rows``.
 
     The initial probability draw may leave ``rows`` unchanged. Sampling errors
@@ -335,27 +420,47 @@ def _alergias_pessoa(p, rows, rng):
         })
 
 
-def _condicoes_cronicas(p, rows, rng, start, end, age):
+def _condicoes_cronicas(
+    p: dict,
+    rows: dict,
+    rng: SeededRNG,
+    start: date,
+    end: date,
+    age: int,
+    diag_dates: list[date],
+) -> bool:
     if age < 30 and not rng.bernoulli(0.1):
-        return
-    if age >= 30 and not rng.bernoulli(0.3):
-        return
+        return False
+    if age >= 30 and not rng.bernoulli(0.35):
+        return False
     nome = str(rng.choice(_CONDICOES_CRONICAS))
+    cdate = _rand_date(rng, start, end)
+    diag_dates.append(cdate)
     rows["condicao_cronica"].append({
         "id": str(uuid5(NAMESPACE_URL, f"cronica-{p['id']}-{nome}")),
         "pessoa_id": p["id"],
         "nome": nome,
-        "data_diagnostico": _isodate(_rand_date(rng, start, end)),
+        "data_diagnostico": _isodate(cdate),
         "controle_atual": str(rng.choice(["controlada", "parcialmente controlada", "descontrolada"])),
     })
+    return True
 
 
-def _saude_mental(p, rows, rng, start, end, age):
+def _saude_mental(
+    p: dict,
+    rows: dict,
+    rng: SeededRNG,
+    start: date,
+    end: date,
+    age: int,
+    diag_dates: list[date],
+) -> bool:
     if not rng.bernoulli(0.18):
-        return
+        return False
     condicao = str(rng.choice(_SAUDE_MENTAL))
     sm_id = str(uuid5(NAMESPACE_URL, f"sm-{p['id']}"))
     sm_start = _rand_date(rng, start, end)
+    diag_dates.append(sm_start)
     rows["saude_mental_registro"].append({
         "id": sm_id, "pessoa_id": p["id"],
         "condicao_ficticia": condicao,
@@ -365,7 +470,7 @@ def _saude_mental(p, rows, rng, start, end, age):
     if rng.bernoulli(0.6):
         tipo_ter = str(rng.choice(_TERAPIAS))
         ter_id = str(uuid5(NAMESPACE_URL, f"ter-{p['id']}-{tipo_ter}"))
-        ter_start = sm_start + timedelta(days=rng.integer(7, 60))
+        ter_start = min(end, sm_start + timedelta(days=rng.integer(7, 60)))
         terapeuta_id = str(uuid5(NAMESPACE_URL, f"terapeuta-{tipo_ter}"))
         rows["terapia"].append({
             "id": ter_id, "pessoa_id": p["id"],
@@ -374,6 +479,8 @@ def _saude_mental(p, rows, rng, start, end, age):
         })
         for s in range(rng.integer(2, 8)):
             sdate = ter_start + timedelta(days=s * 14)
+            if sdate > end:
+                break
             rows["sessao_terapia"].append({
                 "id": str(uuid5(NAMESPACE_URL, f"sess-{ter_id}-{s}")),
                 "terapia_id": ter_id,
@@ -381,9 +488,10 @@ def _saude_mental(p, rows, rng, start, end, age):
                 "duracao": "01:00:00",
                 "notas_ficticias": "sessão fictícia registrada",
             })
+    return True
 
 
-def _seguro(p, rows, rng, start, end):
+def _seguro(p: dict, rows: dict, rng: SeededRNG, start: date, end: date) -> None:
     if not rng.bernoulli(0.45):
         return
     plano_idx = rng.integer(0, len(_PLANO_IDS) - 1)
@@ -396,8 +504,6 @@ def _seguro(p, rows, rng, start, end):
 
 
 if __name__ == "__main__":  # pragma: no cover
-    import sys as _sys
-    _sys.path.insert(0, r"C:\Users\mcmco\Desktop\personadb")
     from persona_db.generators.gen_00_pessoa import generate_personas
     ps = generate_personas(300, seed=3)
     r = generate(ps)

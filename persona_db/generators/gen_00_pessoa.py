@@ -329,6 +329,36 @@ def generate_personas(n: int, seed: int = 7, today: date | None = None) -> list[
     return personas
 
 
+generate = generate_personas
+
+
+def as_pessoa_row(p: dict) -> dict:
+    """Projeta o dict da persona para o formato da tabela `pessoa` (e validadores)."""
+    ts = f"{simulation_today().isoformat()}T00:00:00+00:00"
+    return {
+        "id": p["id"],
+        "nome_completo": p["nome_completo"],
+        "nome_social": p.get("nome_social"),
+        "data_nascimento": p["data_nascimento"],
+        "sexo": p["sexo"],
+        "nacionalidade": p["nacionalidade"],
+        "cidade_nascimento": p["cidade_nascimento"],
+        "uf_nascimento": p["uf_nascimento"],
+        "classe_social": p["classe_social"],
+        "estado_civil": p["estado_civil"],
+        "esta_vivo": p["esta_vivo"],
+        "data_obito": p.get("data_obito"),
+        "criado_em": ts,
+        "atualizado_em": ts,
+        "pai_id": p.get("pai_id"),
+        "mae_id": p.get("mae_id"),
+        "tipo_sanguineo": p.get("tipo_sanguineo"),
+        "fator_rh": p.get("fator_rh"),
+        "cor_olhos": p.get("cor_olhos"),
+        "mao_dominante": p.get("mao_dominante"),
+    }
+
+
 if __name__ == "__main__":  # pragma: no cover
     demo = generate_personas(20, seed=42)
     ok = all(
