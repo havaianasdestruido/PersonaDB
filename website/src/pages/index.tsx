@@ -27,7 +27,7 @@ const features: {title: string; body: ReactNode; to: string}[] = [
         produz o mesmo dataset, em qualquer máquina, hoje ou daqui a um ano.
       </>
     ),
-    to: '/docs/arquitetura/determinismo',
+    to: '/arquitetura/determinismo',
   },
   {
     title: 'Coerente entre domínios',
@@ -37,7 +37,7 @@ const features: {title: string; body: ReactNode; to: string}[] = [
         bloqueia setores, óbito que encerra a linha do tempo.
       </>
     ),
-    to: '/docs/validadores/',
+    to: '/validadores/',
   },
   {
     title: 'Modelos explícitos',
@@ -47,7 +47,7 @@ const features: {title: string; body: ReactNode; to: string}[] = [
         Poisson para fecundidade, gravidade para migração — todos documentados.
       </>
     ),
-    to: '/docs/motores/',
+    to: '/motores/',
   },
   {
     title: 'Documentação viva',
@@ -57,7 +57,7 @@ const features: {title: string; body: ReactNode; to: string}[] = [
         os DDL do repositório são a fonte da verdade.
       </>
     ),
-    to: '/docs/referencia-api/',
+    to: '/referencia-api/',
   },
 ];
 
@@ -75,12 +75,12 @@ function Hero() {
           {stats.foreignKeys} chaves estrangeiras — 100% fictícias e reproduzíveis.
         </p>
         <div className={styles.heroButtons}>
-          <Link className="button button--primary button--lg" to="/docs/intro">
+          <Link className="button button--primary button--lg" to="/intro">
             Começar
           </Link>
           <Link
             className="button button--secondary button--lg"
-            to="/docs/comecando/primeiro-dataset">
+            to="/comecando/primeiro-dataset">
             Gerar um dataset
           </Link>
           <Link
@@ -172,7 +172,7 @@ python3 -m persona_db.scripts.generate \\
               PersonaDB não ingere, anonimiza nem deriva dados de pessoas reais, e seus modelos não
               devem ser usados para decisões sobre indivíduos.
             </p>
-            <Link to="/docs/projeto/etica-e-limitacoes">Ética e limitações →</Link>
+            <Link to="/projeto/etica-e-limitacoes">Ética e limitações →</Link>
           </div>
         </section>
       </main>

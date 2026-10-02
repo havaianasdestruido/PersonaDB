@@ -32,7 +32,7 @@ addopts = "-q --tb=short"
 | `tests/statistical/` | `test_distributions` | Agregados com N grande (médias, proporções, faixas) |
 
 A lista completa de casos, extraída do código, está em
-[Referência de API → tests/](/docs/referencia-api/tests).
+[Referência de API → tests/](/referencia-api/tests).
 
 ## Três categorias de asserção
 
@@ -42,7 +42,7 @@ A lista completa de casos, extraída do código, está em
 def test_mesmo_seed_mesmo_dataset():
     a = generate_all(n=20, seed=7)
     b = generate_all(n=20, seed=7)
-    assert {k: len(v) for k, v in a.items()} == {k: len(v) for k, v in b.items()}
+    assert a == b          # todos os valores e IDs, não só as contagens
 ```
 
 ### 2. Invariantes duras
@@ -51,7 +51,7 @@ Propriedades que **nunca** podem falhar, independentemente da semente:
 
 ```python
 def test_pais_rh_negativos_so_geram_filhos_rh_negativos():
-    assert GeneticEngine.rh_punnett("-", "-") == {"-": 1.0}
+    assert GeneticEngine.rh_punnett("negativo", "negativo") == {"positivo": 0.0, "negativo": 1.0}
 
 def test_salario_respeita_piso():
     assert SocioeconomicEngine.salary(rng, "fundamental", 0, "agro", True, True) >= 1200.0

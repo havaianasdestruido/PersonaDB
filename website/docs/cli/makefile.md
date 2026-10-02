@@ -48,14 +48,23 @@ make -C persona_db migrate DATABASE_URL=postgresql://u:p@host:5432/base
 cp persona_db/.env.example .env
 docker compose -f persona_db/docker-compose.yml up -d
 
+# O compose cria a base persona_db; o padrão do Makefile aponta para personadb.
+export DATABASE_URL=postgresql://persona:persona@localhost:5432/persona_db
+
 make -C persona_db setup
-make -C persona_db migrate
+make -C persona_db migrate DATABASE_URL="$DATABASE_URL"
 make -C persona_db generate N_PESSOAS=1000 SEED=42
 make -C persona_db validate N_PESSOAS=1000 SEED=42
-make -C persona_db load
+make -C persona_db load DATABASE_URL="$DATABASE_URL"
 make -C persona_db export-csv
 make -C persona_db export-parquet
 ```
+
+:::caution Nome da base
+Use o mesmo nome nos dois lados: ou exporte `DATABASE_URL` com `persona_db` (como acima), ou mude
+`POSTGRES_DB` no `docker-compose.yml` para `personadb`. Veja
+[PostgreSQL com Docker Compose](../comecando/postgresql.md).
+:::
 
 :::danger `make reset` apaga tudo
 O alvo derruba o schema `public` inteiro do banco apontado por `DATABASE_URL`. Confirme a URL antes

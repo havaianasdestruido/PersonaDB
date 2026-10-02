@@ -226,30 +226,68 @@ def _function_doc(node: ast.FunctionDef | ast.AsyncFunctionDef) -> FunctionDoc:
     )
 
 
-def _table_keys(tree: ast.AST) -> set[str]:
-    """Nomes de tabela escritos pelo módulo.
+# Nomes de parâmetros que recebem tabelas já geradas por outros módulos: o que
+# é escrito neles pertence ao gerador de origem, não ao módulo atual.
+_INPUT_TABLE_PARAMS = {"existing_tables", "dataset", "tables", "previous"}
 
-    Detecta os três padrões usados pelos geradores do PersonaDB:
-    `rows = {"tabela": []}`, `rows["tabela"].append(...)` e
-    `rows.setdefault("tabela", [])`. Evita falsos positivos de literais
-    que apenas coincidem com um nome de tabela (ex.: `"familia"` como
-    tipo de hospedagem).
+
+def _table_keys(tree: ast.AST) -> set[str]:
+    """Nomes de tabela *produzidos* pelo módulo.
+
+    Detecta os padrões de escrita usados pelos geradores do PersonaDB:
+
+    * `rows = {"tabela": []}` — dicionário de acumulação;
+    * `return {"tabela": _monta_tabela(...)}` — dicionário devolvido;
+    * `rows["tabela"].append(...)` / `.extend(...)`;
+    * `rows["tabela"] = [...]` e `rows.setdefault("tabela", [])`.
+
+    Evita dois tipos de falso positivo: leituras (`row["nota"]`,
+    `existing_tables["imovel"]`) e escritas em tabelas de entrada
+    (`existing_tables["contrato_trabalho"] = ...`), que pertencem ao gerador
+    que as criou.
     """
     keys: set[str] = set()
+    returned_dicts = {
+        id(node.value)
+        for node in ast.walk(tree)
+        if isinstance(node, ast.Return) and isinstance(node.value, ast.Dict)
+    }
+
+    def _is_input(node: ast.AST) -> bool:
+        return isinstance(node, ast.Name) and node.id in _INPUT_TABLE_PARAMS
+
     for node in ast.walk(tree):
         if isinstance(node, ast.Dict):
+            # Num dicionário devolvido, qualquer valor conta (lista literal ou
+            # chamada de função); fora dele, só listas literais.
+            any_value = id(node) in returned_dicts
             for key, value in zip(node.keys, node.values):
                 if (
                     isinstance(key, ast.Constant)
                     and isinstance(key.value, str)
-                    and isinstance(value, ast.List)
+                    and (any_value or isinstance(value, ast.List))
                 ):
                     keys.add(key.value)
-        elif isinstance(node, ast.Subscript) and isinstance(node.value, ast.Name):
-            if isinstance(node.slice, ast.Constant) and isinstance(node.slice.value, str):
-                keys.add(node.slice.value)
+        elif (
+            isinstance(node, ast.Subscript)
+            and isinstance(node.ctx, ast.Store)
+            and isinstance(node.slice, ast.Constant)
+            and isinstance(node.slice.value, str)
+            and not _is_input(node.value)
+        ):
+            keys.add(node.slice.value)
         elif isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute):
-            if node.func.attr == "setdefault" and node.args:
+            func = node.func
+            if func.attr in ("append", "extend"):
+                target = func.value
+                if (
+                    isinstance(target, ast.Subscript)
+                    and isinstance(target.slice, ast.Constant)
+                    and isinstance(target.slice.value, str)
+                    and not _is_input(target.value)
+                ):
+                    keys.add(target.slice.value)
+            elif func.attr == "setdefault" and node.args and not _is_input(func.value):
                 first = node.args[0]
                 if isinstance(first, ast.Constant) and isinstance(first.value, str):
                     keys.add(first.value)

@@ -8,7 +8,7 @@ description: Os sete motores probabilísticos que sustentam a geração de perso
 # Motores matemáticos
 
 Os motores concentram toda a estatística do PersonaDB. Eles vivem em
-[`persona_db/engines/`](/docs/referencia-api/engines), não conhecem tabelas SQL e são testados
+[`persona_db/engines/`](/referencia-api/engines), não conhecem tabelas SQL e são testados
 isoladamente — o que permite recalibrar um modelo sem tocar em nenhum gerador.
 
 | Motor | Classe | Modelos principais |

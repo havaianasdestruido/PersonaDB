@@ -76,13 +76,17 @@ carreira ainda aplica o piso histórico do salário mínimo do ano da contrataç
 SocioeconomicEngine.salary(
     rng, education="superior", experience_years=12, sector="tecnologia",
     gender_female=False, race_minority=False, nepotism_log_bonus=0.0,
-)   # → ~R$ 1 000 – 2 000 por mês em escala log; veja a nota abaixo
+)   # → valor bruto anual em BRL, com piso de 1 200; veja a nota abaixo
 ```
 
 :::note Escala do valor
-O intercepto 5,20 em escala logarítmica corresponde a $e^{5{,}20} \approx 181$ unidades; com os
-prêmios de educação, setor e experiência, os valores resultantes são usados pelo gerador de
-carreira como **salário base mensal em BRL**, sempre reajustado ao piso vigente.
+A docstring descreve o retorno como **salário bruto anual em BRL**, mas o intercepto 5,20 em escala
+logarítmica corresponde a apenas $e^{5{,}20} \approx 181$ unidades — ou seja, na prática o número
+funciona como um **índice de escala**, não como reais.
+
+`gen_05_carreira` o trata exatamente assim: divide por 1 200, multiplica pelo piso do ano
+(`max(piso, 1320)`) e pelos multiplicadores de classe e escolaridade para chegar ao
+`salario_mensal`; a `renda_anual` sai de `salario_mensal × 13,3` (12 meses + 13º + férias).
 :::
 
 ## 4. Influência familiar (nepotismo)

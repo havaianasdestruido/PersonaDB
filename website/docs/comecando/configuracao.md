@@ -62,11 +62,14 @@ Qualquer parâmetro relevante também existe como flag, e a flag **vence** sobre
 
 | Parâmetro | Flag | CLIs |
 |---|---|---|
-| Nº de personas | `--personas` / `--people` | `generate`, `run_validators`, `benchmark` |
+| Nº de personas | `--personas` / `--people` | `generate` (os dois nomes) |
+| Nº de personas | `--personas` | `run_validators` |
+| Nº de personas | `--people` | `benchmark` |
 | Semente | `--seed` | `generate`, `run_validators`, `benchmark` |
 | Subconjunto de domínios | `--domains` | `generate` |
-| Saída JSON | `--json-out` / `--output` | `generate` |
-| Relatório HTML | `--html-report` / `--html-out` | `generate`, `run_validators` |
+| Saída JSON | `--json-out` / `--output` | `generate` (os dois nomes) |
+| Relatório HTML | `--html-report` | `generate` |
+| Relatório HTML | `--html-out` | `run_validators` |
 | Conexão | `--database-url` | `bulk_insert`, `document_schema` |
 | Tamanho do lote de `INSERT` | `--page-size` | `bulk_insert` |
 

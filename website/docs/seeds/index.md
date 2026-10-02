@@ -7,7 +7,7 @@ description: Catálogos determinísticos e tabelas de probabilidade usados pelos
 
 # Dados de referência
 
-O pacote [`persona_db/seeds/`](/docs/referencia-api/seeds) concentra tudo o que é **fixo** no
+O pacote [`persona_db/seeds/`](/referencia-api/seeds) concentra tudo o que é **fixo** no
 PersonaDB: catálogos de nomes, lugares e instituições fictícias, e as distribuições de
 probabilidade calibradas.
 

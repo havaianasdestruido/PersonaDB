@@ -85,6 +85,14 @@ def _build_catalog(rows: dict[str, list[dict]]) -> list[str]:
     return ids
 
 
+def _aniversario(nascimento: date, anos: int) -> date:
+    """Aniversário calendárico; 29/02 cai em 28/02 nos anos não bissextos."""
+    try:
+        return nascimento.replace(year=nascimento.year + anos)
+    except ValueError:
+        return nascimento.replace(year=nascimento.year + anos, month=2, day=28)
+
+
 def _probabilidade(p: dict) -> float:
     base = 0.12
     if p.get("education") in ("superior", "pos"):
@@ -106,7 +114,7 @@ def generate(personas: list[dict], seed: int = 7, today: date | None = None) -> 
         nascimento = date.fromisoformat(p["data_nascimento"])
         fim_vida = date.fromisoformat(p["data_obito"]) if p.get("data_obito") else today
 
-        maioridade = nascimento + timedelta(days=16 * 365)
+        maioridade = _aniversario(nascimento, 16)   # data-limite única, reusada no validador
         p["faz_voluntariado"] = False
         if maioridade >= fim_vida or not rng.bernoulli(_probabilidade(p)):
             continue
@@ -168,7 +176,7 @@ def validate_voluntariado(dataset, today=None):
     nascimentos = {p["id"]: date.fromisoformat(p["data_nascimento"]) for p in dataset.get("pessoa", [])}
     for row in dataset.get("participacao_voluntaria", []):
         nasc = nascimentos.get(row["pessoa_id"])
-        if nasc and (date.fromisoformat(row["data_inicio"]) - nasc).days < 16 * 365:
+        if nasc and date.fromisoformat(row["data_inicio"]) < _aniversario(nasc, 16):
             violations.append({"domain": "voluntariado", "rule": "volunteer_min_age_16",
                                "person_id": row["pessoa_id"]})
     return violations
@@ -190,15 +198,16 @@ def test_voluntariado_deterministico():
     personas = generate_personas(30, seed=7)
     a = gen_42_voluntariado.generate(personas, seed=7)
     b = gen_42_voluntariado.generate(personas, seed=7)
-    assert {k: len(v) for k, v in a.items()} == {k: len(v) for k, v in b.items()}
+    assert a == b          # todos os valores e IDs, não só as contagens
 
 
 def test_voluntariado_respeita_idade_minima():
     personas = generate_personas(50, seed=7)
     rows = gen_42_voluntariado.generate(personas, seed=7)
-    nascimentos = {p["id"]: p["data_nascimento"] for p in personas}
+    nascimentos = {p["id"]: date.fromisoformat(p["data_nascimento"]) for p in personas}
     for row in rows["participacao_voluntaria"]:
-        assert row["data_inicio"] > nascimentos[row["pessoa_id"]]
+        # mesmo corte usado pelo gerador e pelo validador
+        assert date.fromisoformat(row["data_inicio"]) >= _aniversario(nascimentos[row["pessoa_id"]], 16)
 ```
 
 ## 6. Verificar de ponta a ponta

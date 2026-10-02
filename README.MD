@@ -2,7 +2,7 @@
 
 O **PersonaDB** é um motor determinístico de geração de dados sintéticos e relacionais para **personas fictícias brasileiras**, cobrindo **25 domínios** da vida humana (**257 tabelas** no PostgreSQL 16). Todos os registros são 100% fictícios e reproduzíveis a partir de uma única semente mestre (`SeededRNG` / PCG64 com derivação criptográfica `BLAKE2b`).
 
-📚 **Documentação completa:** <https://havaianasdestruido.github.io/PersonaDB/> — guias de instalação, arquitetura, motores matemáticos, catálogo dos geradores, referência de API de todos os módulos Python e dicionário das 257 tabelas. O site vive em [`website/`](website/) (Docusaurus) e é publicado automaticamente pelo workflow [`docs.yml`](.github/workflows/docs.yml).
+📚 **Documentação completa:** <https://havaianasdestruido.github.io/PersonaDB/docs/> — guias de instalação, arquitetura, motores matemáticos, catálogo dos geradores, referência de API de todos os módulos Python e dicionário das 257 tabelas. O site vive em [`website/`](website/) (Docusaurus) e é publicado automaticamente pelo workflow [`docs.yml`](.github/workflows/docs.yml).
 
 ---
 

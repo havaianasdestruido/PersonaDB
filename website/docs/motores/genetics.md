@@ -27,10 +27,17 @@ Alelos $\{I^A, I^B, i\}$, com $I^A$ e $I^B$ codominantes e $i$ recessivo:
 Priors populacionais usados quando não há pais conhecidos: **O 47%, A 41%, B 9%, AB 3%**;
 **Rh+ 87%, Rh− 13%**.
 
+Os fenótipos entram como `"A"`, `"B"`, `"AB"` e `"O"`, e o Rh como `"positivo"` ou `"negativo"`;
+o tipo do filho é informado com o sufixo de Rh (`"A+"`, `"O-"`).
+
 ```python
-GeneticEngine.punnett_abo("A", "B")   # {"A": .25, "B": .25, "AB": .25, "O": .25} (heterozigotos)
-GeneticEngine.rh_punnett("-", "-")    # {"-": 1.0}
-GeneticEngine.validate_child_blood("O", "O", "+", "-", "A")   # False
+GeneticEngine.punnett_abo("A", "B")
+# {"AB": 0.5625, "A": 0.1875, "B": 0.1875, "O": 0.0625}
+# (gametas ponderados sobre todos os genótipos compatíveis com cada fenótipo)
+
+GeneticEngine.rh_punnett("negativo", "negativo")   # {"positivo": 0.0, "negativo": 1.0}
+GeneticEngine.validate_child_blood("O", "O", "positivo", "negativo", "A+")   # False
+GeneticEngine.validate_child_blood("O", "O", "positivo", "negativo", "O+")   # True
 ```
 
 Regra dura: **dois pais Rh− só podem ter filhos Rh−**, e `validate_child_blood` rejeita qualquer
@@ -47,8 +54,13 @@ um alelo não presente nos pais, simulando mutações e ancestralidade não regi
 
 ## 3. Cor do cabelo
 
-`hair_color()` combina a herança parental com os priors de ancestralidade de
-`seeds.probability_tables.ANCESTRY_TO_TRAITS`, mantendo coerência com `pele` e `cor_olhos`.
+`hair_color(hair_pai_str, hair_mae_str, ancestry_european_pct)` parte da **dominância entre as
+cores dos pais** (preto > castanho > loiro > ruivo) e aplica dois desvios proporcionais à
+ancestralidade europeia informada: uma pequena chance de loiro (quando a base é preta ou castanha e
+a ancestralidade europeia é baixa) e uma chance menor ainda de ruivo. Um sorteio normal adicional
+converte o resultado em `grisalho` nos casos extremos. A função não consulta
+`ANCESTRY_TO_TRAITS` nem recebe `pele`/`cor_olhos` — essa coordenação, quando existe, é feita pelo
+gerador que a chama.
 
 ## 4. Lateralidade (modelo logístico familiar)
 
@@ -78,13 +90,18 @@ de 6,5 cm produz a regressão à média característica do modelo de Galton.
 GeneticEngine.peso_from_height(altura_cm=172, sex="masculino", disease_chronic=True)
 ```
 
-O IMC é sorteado de uma log-normal e ajustado para cima na presença de doença crônica; o peso
-final é $W = \text{IMC} \cdot (H/100)^2$.
+O IMC é sorteado de uma log-normal e, na presença de doença crônica, **ajustado para baixo**
+(multiplicado por 0,94, simulando perda de peso associada à doença); o peso final é
+$W = \text{IMC} \cdot (H/100)^2$, limitado a 2–300 kg.
 
 ## 7. Escore poligênico de risco (PRS)
 
+As condições reconhecidas são `diabetes_t2`, `hipertensao`, `depressao`, `daltonismo` e
+`fenilcetonuria`; `family_effects` é indexado **pela própria condição** (qualquer outra chave é
+ignorada):
+
 ```python
-prs = engine.prs_risk("diabetes", family_effects={"pai": True}, genotypes=None)
+prs = engine.prs_risk("diabetes_t2", family_effects={"diabetes_t2": 0.8}, genotypes=None)
 engine.has_hereditary_disease(prs, threshold=0.5)
 ```
 

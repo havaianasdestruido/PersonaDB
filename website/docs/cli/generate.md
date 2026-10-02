@@ -22,7 +22,7 @@ Executa o [pipeline completo](../arquitetura/pipeline.md): personas base → 23 
 | `--seed` | `7` | Semente mestre |
 | `--batch-size` | `100` | Tamanho de lote informado no resumo (não altera o resultado) |
 | `--domains` | todos | Lista separada por vírgulas de prefixos de domínio (`02_genealogia,03_saude`) |
-| `--dry-run` | desligado | Não grava arquivos; apenas imprime o resumo |
+| `--dry-run` | desligado | Não grava o **dataset JSON** (`--json-out`); o resumo e o relatório de `--html-report` continuam sendo produzidos |
 | `--validate` / `--no-validate` | validação **ligada** | Roda (ou não) os validadores |
 | `--json-out` / `--output` | — | Caminho do JSON de saída |
 | `--html-report` | — | Caminho do relatório HTML de validação |

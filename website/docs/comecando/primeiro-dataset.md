@@ -79,7 +79,8 @@ python3 -m persona_db.validators.run_validators --personas 200 --seed 42 --html-
 ```
 
 Esse CLI regenera o dataset com a mesma semente e aplica apenas a camada de validação — útil para
-depurar regras sem escrever arquivos. Veja [Validadores](../validadores/index.md).
+depurar regras sem gravar o dataset em disco (o único arquivo escrito é o relatório indicado por
+`--html-out`). Veja [Validadores](../validadores/index.md).
 
 ## 5. Exportar
 

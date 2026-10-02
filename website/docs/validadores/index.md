@@ -8,7 +8,7 @@ description: As verificações estruturais e os seis validadores de domínio do 
 # Validadores de consistência
 
 Gerar dados plausíveis é fácil; gerar dados **coerentes entre 257 tabelas** não é. A camada
-[`persona_db/validators/`](/docs/referencia-api/validators) percorre o dataset em memória e reprova a
+[`persona_db/validators/`](/referencia-api/validators) percorre o dataset em memória e reprova a
 execução quando qualquer invariante é quebrada.
 
 ```mermaid

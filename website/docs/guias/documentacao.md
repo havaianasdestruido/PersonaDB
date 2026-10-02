@@ -66,8 +66,11 @@ arquivo DDL, extrai tabelas, colunas, tipos, nulidade, defaults, `CHECK`, chaves
 ENUMs, funções, views, triggers e índices, além de montar o diagrama ER em Mermaid.
 
 A ligação **tabela → gerador responsável** é inferida cruzando os nomes de tabela do DDL com as
-chaves de dicionário efetivamente escritas por cada gerador (padrões `rows = {"tabela": []}`,
-`rows["tabela"].append(...)` e `rows.setdefault("tabela", [])`).
+chaves de dicionário efetivamente **escritas** por cada gerador: `rows = {"tabela": []}`, o
+dicionário do `return`, `rows["tabela"].append(...)`/`.extend(...)`, `rows["tabela"] = [...]` e
+`rows.setdefault("tabela", [])`. Leituras (`row["nota"]`) e escritas em tabelas recebidas por
+parâmetro (`existing_tables["contrato_trabalho"]`) são ignoradas, para não atribuir ao módulo
+tabelas que ele apenas consome.
 
 ## Escrevendo páginas à mão
 
@@ -85,18 +88,25 @@ Páginas novas escritas à mão precisam ser adicionadas a `website/sidebars.ts`
 
 ## Publicação
 
-O workflow `.github/workflows/docs.yml` constrói e publica o site no GitHub Pages a cada push na
-branch `main` que toque em `website/`, `persona_db/` ou no próprio workflow — e também sob demanda
-(`workflow_dispatch`).
+O workflow `.github/workflows/docs.yml` monta e publica o site no GitHub Pages a cada push na
+branch `main` (e sob demanda, com `workflow_dispatch`). Em pull requests ele roda o build sem
+publicar, servindo de gate contra links quebrados.
 
-A URL publicada é `https://havaianasdestruido.github.io/PersonaDB/`, configurada em
-`docusaurus.config.ts` por `url` + `baseUrl`.
+Como o Pages aceita um único artefato por repositório, o workflow junta as duas fontes:
 
-:::caution Dois workflows publicam no Pages
-O repositório mantém o workflow legado `jekyll-gh-pages.yml`, que também publica em `main`. Como os
-dois usam o mesmo ambiente `github-pages`, o último a concluir sobrescreve o anterior. Para
-publicar somente este site, desative o workflow do Jekyll em **Actions → Deploy Jekyll with GitHub
-Pages dependencies preinstalled → Disable workflow**.
+| Caminho publicado | Origem |
+|---|---|
+| `https://havaianasdestruido.github.io/PersonaDB/` | raiz do repositório, construída com Jekyll |
+| `https://havaianasdestruido.github.io/PersonaDB/docs/` | este site, construído com Docusaurus |
+
+Por isso `docusaurus.config.ts` usa `url: https://havaianasdestruido.github.io` com
+`baseUrl: '/PersonaDB/docs/'` e `routeBasePath: '/'` no plugin de docs — as páginas ficam
+diretamente sob `/docs/` (por exemplo `/PersonaDB/docs/motores/rng`).
+
+:::note Workflow Jekyll legado
+`jekyll-gh-pages.yml` continua no repositório, mas só roda por `workflow_dispatch`: o artefato dele
+contém apenas a raiz e sobrescreveria `/docs`. A construção automática da raiz passou a ser feita
+pelo próprio `docs.yml`.
 :::
 
 ## Fontes auxiliares

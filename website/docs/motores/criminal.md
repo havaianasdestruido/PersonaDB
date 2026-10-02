@@ -38,7 +38,7 @@ $$\text{logit}(p) = -3{,}50 + \sum_j \beta_j x_j$$
 
 ```python
 engine.crime_probability({"sex": "masculino", "age": 22, "class_label": "D_E",
-                          "education": "medio", "unemployed": True})
+                          "education": "medio", "desemprego": True})
 engine.commits_crime(features)   # Bernoulli sobre a probabilidade acima
 ```
 

@@ -7,7 +7,7 @@ description: Como os 24 geradores traduzem os motores probabilísticos em linhas
 
 # Geradores de domínio
 
-Cada um dos 24 módulos em [`persona_db/generators/`](/docs/referencia-api/generators) é responsável
+Cada um dos 24 módulos em [`persona_db/generators/`](/referencia-api/generators) é responsável
 por um domínio do schema. Eles são a cola entre os [motores matemáticos](../motores/index.md) e as
 [257 tabelas](../schema/index.md).
 

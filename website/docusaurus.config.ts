@@ -20,7 +20,9 @@ const config: Config = {
   },
 
   url: `https://${ORG}.github.io`,
-  baseUrl: `/${REPO}/`,
+  // O site Jekyll legado continua na raiz de /PersonaDB/; a documentação
+  // Docusaurus é publicada em /PersonaDB/docs/ pelo workflow docs.yml.
+  baseUrl: `/${REPO}/docs/`,
 
   organizationName: ORG,
   projectName: REPO,
@@ -55,7 +57,7 @@ const config: Config = {
         hashed: true,
         language: ['pt', 'en'],
         indexBlog: false,
-        docsRouteBasePath: '/docs',
+        docsRouteBasePath: '/',
         highlightSearchTermsOnTargetPage: true,
         searchResultLimits: 10,
       },
@@ -67,6 +69,8 @@ const config: Config = {
       'classic',
       {
         docs: {
+          // A documentação ocupa a raiz do baseUrl (/PersonaDB/docs/).
+          routeBasePath: '/',
           sidebarPath: './sidebars.ts',
           editUrl: `https://github.com/${ORG}/${REPO}/tree/main/website/`,
           remarkPlugins: [remarkMath],
@@ -88,10 +92,11 @@ const config: Config = {
 
   stylesheets: [
     {
-      href: 'https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css',
+      // Mesma versão que o rehype-katex resolve em node_modules (0.16.47).
+      href: 'https://cdn.jsdelivr.net/npm/katex@0.16.47/dist/katex.min.css',
       type: 'text/css',
       integrity:
-        'sha384-n8MVd4RsNIU0tAv4ct0nTaAbDJwPJzDEaqSD1odI+WdtXRGWt2kTvGFasHpSy3SV',
+        'sha384-nH0MfJ44wi1dd7w6jinlyBgljjS8EJAh2JBoRad8a3VDw2K69vfaaqm4WnR+gXtA',
       crossorigin: 'anonymous',
     },
   ],
@@ -145,19 +150,19 @@ const config: Config = {
         {
           title: 'Documentação',
           items: [
-            {label: 'Introdução', to: '/docs/intro'},
-            {label: 'Instalação', to: '/docs/comecando/instalacao'},
-            {label: 'Primeiro dataset', to: '/docs/comecando/primeiro-dataset'},
-            {label: 'Arquitetura', to: '/docs/arquitetura/visao-geral'},
+            {label: 'Introdução', to: '/intro'},
+            {label: 'Instalação', to: '/comecando/instalacao'},
+            {label: 'Primeiro dataset', to: '/comecando/primeiro-dataset'},
+            {label: 'Arquitetura', to: '/arquitetura/visao-geral'},
           ],
         },
         {
           title: 'Referência',
           items: [
-            {label: 'Motores matemáticos', to: '/docs/motores/'},
-            {label: 'Geradores de domínio', to: '/docs/geradores/'},
-            {label: 'Referência de API', to: '/docs/referencia-api/'},
-            {label: 'Schema relacional', to: '/docs/schema/'},
+            {label: 'Motores matemáticos', to: '/motores/'},
+            {label: 'Geradores de domínio', to: '/geradores/'},
+            {label: 'Referência de API', to: '/referencia-api/'},
+            {label: 'Schema relacional', to: '/schema/'},
           ],
         },
         {
@@ -168,7 +173,7 @@ const config: Config = {
               label: 'Issues',
               href: `https://github.com/${ORG}/${REPO}/issues`,
             },
-            {label: 'Ética e limitações', to: '/docs/projeto/etica-e-limitacoes'},
+            {label: 'Ética e limitações', to: '/projeto/etica-e-limitacoes'},
             {label: 'Licença MIT', href: `https://github.com/${ORG}/${REPO}/blob/main/LICENSE`},
           ],
         },

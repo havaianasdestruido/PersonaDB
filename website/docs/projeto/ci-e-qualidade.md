@@ -12,8 +12,11 @@ description: Workflows do GitHub Actions, gates de qualidade e como reproduzi-lo
 | Workflow | Arquivo | Gatilho | O que faz |
 |---|---|---|---|
 | **CI** | `.github/workflows/ci.yml` | todo push e pull request | instala o pacote com extras `[dev]`, roda `pytest` e `ruff` em Python 3.12 |
-| **Documentação** | `.github/workflows/docs.yml` | push em `main` tocando `website/` ou `persona_db/`, e `workflow_dispatch` | gera a documentação automática, constrói o Docusaurus e publica no GitHub Pages |
-| **Jekyll (legado)** | `.github/workflows/jekyll-gh-pages.yml` | push em `main` | publicação antiga, baseada em Jekyll |
+| **Pages** | `.github/workflows/docs.yml` | push em `main`, **todo pull request** e `workflow_dispatch` | constrói a raiz com Jekyll e a documentação com Docusaurus, monta o site combinado e publica no GitHub Pages |
+| **Jekyll (legado)** | `.github/workflows/jekyll-gh-pages.yml` | só `workflow_dispatch` | publicação antiga, apenas da raiz; mantida para execução manual |
+
+Em pull requests o workflow de Pages roda o build completo (é o gate de links quebrados), mas
+**pula a publicação**: os passos de upload e o job `deploy` só rodam em `push`/`workflow_dispatch`.
 
 ```yaml
 # ci.yml
@@ -29,11 +32,12 @@ jobs:
       - run: python -m ruff check persona_db
 ```
 
-:::caution Conflito de publicação
-`docs.yml` e `jekyll-gh-pages.yml` publicam no mesmo ambiente `github-pages`. Quando os dois rodam
-no mesmo push, o último a terminar substitui o site. Desative o workflow do Jekyll em
-**Actions → Deploy Jekyll with GitHub Pages dependencies preinstalled → Disable workflow** para
-manter apenas esta documentação no ar.
+:::note Um artefato, dois sites
+O GitHub Pages publica um único artefato por repositório. Para conviverem, `docs.yml` monta os dois
+na mesma árvore — Jekyll na raiz (`/PersonaDB/`) e Docusaurus em `/PersonaDB/docs/` — e é o único
+workflow que publica automaticamente. O `jekyll-gh-pages.yml` ficou restrito a `workflow_dispatch`
+porque o artefato dele contém só a raiz e apagaria `/docs`; os dois compartilham o grupo de
+concorrência `pages`.
 :::
 
 ## Reproduzindo a CI localmente

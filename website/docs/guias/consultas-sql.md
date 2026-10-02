@@ -22,8 +22,22 @@ SELECT
     ps.valor_total_estimado AS patrimonio_liquido,
     rs.valor_score          AS score_reputacao
 FROM pessoa p
-LEFT JOIN patrimonio_snapshot ps ON ps.pessoa_id = p.id
-LEFT JOIN reputacao_score rs     ON rs.pessoa_id = p.id
+-- patrimonio_snapshot e reputacao_score são séries temporais (várias linhas por
+-- pessoa): o LATERAL pega só a mais recente e evita duplicar a pessoa.
+LEFT JOIN LATERAL (
+    SELECT valor_total_estimado
+    FROM patrimonio_snapshot
+    WHERE pessoa_id = p.id
+    ORDER BY data DESC NULLS LAST
+    LIMIT 1
+) ps ON TRUE
+LEFT JOIN LATERAL (
+    SELECT valor_score
+    FROM reputacao_score
+    WHERE pessoa_id = p.id
+    ORDER BY data DESC NULLS LAST
+    LIMIT 1
+) rs ON TRUE
 ORDER BY ps.valor_total_estimado DESC NULLS LAST
 LIMIT 20;
 ```
@@ -67,9 +81,11 @@ ORDER BY ldt.ordem_cronologica;
 SELECT p.classe_social,
        COUNT(*)                                        AS pessoas,
        ROUND(AVG(EXTRACT(YEAR FROM age(p.data_nascimento)))::numeric, 1) AS idade_media,
-       COUNT(*) FILTER (WHERE d.id IS NOT NULL)        AS com_diploma
+       -- EXISTS em vez de JOIN: quem tem dois diplomas não é contado duas vezes
+       COUNT(*) FILTER (
+           WHERE EXISTS (SELECT 1 FROM diploma d WHERE d.pessoa_id = p.id)
+       )                                               AS com_diploma
 FROM pessoa p
-LEFT JOIN diploma d ON d.pessoa_id = p.id
 GROUP BY p.classe_social
 ORDER BY p.classe_social;
 ```

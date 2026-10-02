@@ -105,7 +105,7 @@ A suíte cobre isso explicitamente em `persona_db/tests/unit/test_rng.py` e
 def test_mesma_semente_mesmo_resultado():
     a = generate_all(n=20, seed=7)
     b = generate_all(n=20, seed=7)
-    assert {k: len(v) for k, v in a.items()} == {k: len(v) for k, v in b.items()}
+    assert a == b          # todos os valores e IDs, não só as contagens
 ```
 
 Na linha de comando:

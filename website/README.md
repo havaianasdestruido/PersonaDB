@@ -8,7 +8,7 @@ português do Brasil.
 ```bash
 cd website
 npm install
-npm start            # http://localhost:3000/PersonaDB/
+npm start            # http://localhost:3000/PersonaDB/docs/
 ```
 
 ## Scripts
@@ -37,5 +37,7 @@ Esses arquivos **não são versionados** (exceto `stats.json`): são regenerados
 ## Publicação
 
 O workflow `.github/workflows/docs.yml` publica automaticamente em
-<https://havaianasdestruido.github.io/PersonaDB/> a cada push na `main` que toque em `website/` ou
-`persona_db/`.
+<https://havaianasdestruido.github.io/PersonaDB/docs/> a cada push na `main`. O mesmo workflow
+constrói a raiz do repositório com Jekyll (`https://havaianasdestruido.github.io/PersonaDB/`) e
+acopla esta documentação em `/docs`, porque o GitHub Pages publica um único artefato por
+repositório. Em pull requests o build roda sem publicar.

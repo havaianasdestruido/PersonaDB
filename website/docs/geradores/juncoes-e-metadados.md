@@ -35,9 +35,11 @@ muitos-para-muitos, **deduplicando pares** com conjuntos auxiliares.
 A tabela `pessoa_processo` também é N:N, mas é produzida diretamente por `gen_11_juridico`.
 
 :::note Fallback de religião
-Se nenhuma conversão religiosa foi sorteada, o orquestrador insere uma linha mínima em
-`pessoa_religiao_historico` (primeira pessoa, primeira crença, início na data de nascimento) para
-que a tabela nunca fique vazia no dataset.
+Numa execução completa, se nenhuma conversão religiosa foi sorteada, o orquestrador insere uma
+linha mínima em `pessoa_religiao_historico` (primeira pessoa, primeira crença, início na data de
+nascimento) para que a tabela não fique vazia. O fallback depende de `crenca` e `pessoa` já
+estarem no dataset: numa execução parcial (`--domains` sem `18_religiao`) a tabela pode ficar
+vazia.
 :::
 
 ```python
@@ -72,8 +74,11 @@ digest = hashlib.sha256(
 ).hexdigest()[:32]
 ```
 
-Ou seja: **duas execuções com a mesma semente produzem o mesmo digest**, o que dá um teste de
-regressão barato para o pipeline.
+Ou seja: o digest é uma **impressão digital das contagens de linhas por tabela**, não do conteúdo.
+Duas execuções com os **mesmos parâmetros** (semente, número de personas, data-âncora e domínios)
+produzem o mesmo digest, e ele muda quando alguma tabela passa a ter mais ou menos linhas — mas
+**não** detecta mudanças nos valores das linhas. Para regressão de conteúdo, compare os datasets
+(ou o JSON exportado) diretamente.
 
 ## Domínio 26 — versão do schema
 

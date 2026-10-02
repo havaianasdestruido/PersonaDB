@@ -22,6 +22,13 @@ docker compose -f persona_db/docker-compose.yml up -d
 docker compose -f persona_db/docker-compose.yml ps
 ```
 
+:::caution Portas abertas em todas as interfaces
+O compose publica `5432:5432` e `8080:80`, ou seja, expõe o banco (usuário/senha `persona`) e o
+pgAdmin (`admin`/`admin`) em **todas** as interfaces da máquina. Em rede compartilhada, prefixe as
+publicações com o loopback — `127.0.0.1:5432:5432` e `127.0.0.1:8080:80` — ou troque as
+credenciais padrão.
+:::
+
 O diretório `persona_db/sql/schema` é montado em `/docker-entrypoint-initdb.d`, portanto **na
 primeira inicialização do volume** o PostgreSQL já aplica todos os DDL em ordem alfabética
 (`00_hub.sql` → `99_functions.sql`).
@@ -106,6 +113,9 @@ random_page_cost = 1.1
 
 Para cargas grandes (≥ 1 milhão de linhas), vale ainda:
 
-- rodar `98_indexes.sql` **depois** da carga inicial, para acelerar os `INSERT`s;
+- aplicar **antes** da carga a parte de `98_indexes.sql` que cria as **partições** de `transacao`
+  (intervalos anuais + `DEFAULT`) e de `exame_resultado` (4 partições por hash) — sem elas o
+  `INSERT` nessas tabelas particionadas falha; só os **índices opcionais** (BTREE/GIN) valem a pena
+  criar depois da carga, para acelerar os `INSERT`s;
 - executar `ANALYZE` ao final da carga;
 - aumentar `maintenance_work_mem` temporariamente durante a criação dos índices.

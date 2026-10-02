@@ -1,27 +1,27 @@
-name: Deploy PersonaDB docs (Docusaurus)
+name: Deploy GitHub Pages (Jekyll + Docusaurus)
+
+# O GitHub Pages publica um único artefato por repositório. Este workflow monta
+# esse artefato combinando as duas fontes:
+#   - a raiz do repositório, construída com Jekyll  -> /PersonaDB/
+#   - o site Docusaurus em website/                 -> /PersonaDB/docs/
+# Por isso o workflow legado jekyll-gh-pages.yml foi mantido apenas como
+# execução manual (workflow_dispatch): se ele publicasse sozinho, apagaria /docs.
 
 on:
   push:
     branches: ["main"]
-    paths:
-      - "website/**"
-      - "persona_db/**"
-      - ".github/workflows/docs.yml"
   pull_request:
-    paths:
-      - "website/**"
-      - "persona_db/**"
-      - ".github/workflows/docs.yml"
   workflow_dispatch:
 
+# Permissões mínimas no nível do workflow: o job de build não recebe
+# credenciais de publicação.
 permissions:
   contents: read
-  pages: write
-  id-token: write
 
-# Não cancela execuções em andamento: um deploy de produção deve terminar.
+# Um único grupo "pages" compartilhado com o workflow Jekyll legado, para que
+# dois deploys nunca disputem o mesmo ambiente.
 concurrency:
-  group: "pages-docusaurus"
+  group: "pages"
   cancel-in-progress: false
 
 jobs:
@@ -32,6 +32,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           fetch-depth: 0 # necessário para "última atualização" nas páginas
+          persist-credentials: false
 
       - name: Setup Node
         uses: actions/setup-node@v4
@@ -45,28 +46,43 @@ jobs:
         with:
           python-version: "3.12"
 
+      - name: Setup Pages
+        uses: actions/configure-pages@v5
+
+      - name: Build Jekyll (raiz do site)
+        uses: actions/jekyll-build-pages@v1
+        with:
+          source: ./
+          destination: ./_site
+
       - name: Install dependencies
         working-directory: website
         run: npm ci
 
-      - name: Build site
+      - name: Build Docusaurus
         working-directory: website
         run: npm run build # o hook prebuild roda scripts/generate_reference.py
 
-      - name: Setup Pages
-        if: github.event_name != 'pull_request'
-        uses: actions/configure-pages@v5
+      - name: Montar /docs dentro do site
+        run: |
+          rm -rf _site/docs _site/website
+          mkdir -p _site/docs
+          cp -R website/build/. _site/docs/
 
       - name: Upload artifact
         if: github.event_name != 'pull_request'
         uses: actions/upload-pages-artifact@v3
         with:
-          path: website/build
+          path: ./_site
 
   deploy:
     if: github.event_name != 'pull_request'
     needs: build
     runs-on: ubuntu-latest
+    # Credenciais de publicação só existem neste job.
+    permissions:
+      pages: write
+      id-token: write
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
