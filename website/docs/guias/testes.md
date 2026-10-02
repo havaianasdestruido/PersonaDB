@@ -32,7 +32,7 @@ addopts = "-q --tb=short"
 | `tests/statistical/` | `test_distributions` | Agregados com N grande (médias, proporções, faixas) |
 
 A lista completa de casos, extraída do código, está em
-[Referência de API → tests/](/referencia-api/tests).
+[Referência de API → tests/](../referencia-api/tests).
 
 ## Três categorias de asserção
 

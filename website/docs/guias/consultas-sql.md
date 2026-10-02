@@ -27,15 +27,15 @@ FROM pessoa p
 LEFT JOIN LATERAL (
     SELECT valor_total_estimado
     FROM patrimonio_snapshot
-    WHERE pessoa_id = p.id
-    ORDER BY data DESC NULLS LAST
+    WHERE pessoa_id = p.id AND data IS NOT NULL
+    ORDER BY data DESC, id DESC          -- id desempata snapshots da mesma data
     LIMIT 1
 ) ps ON TRUE
 LEFT JOIN LATERAL (
     SELECT valor_score
     FROM reputacao_score
-    WHERE pessoa_id = p.id
-    ORDER BY data DESC NULLS LAST
+    WHERE pessoa_id = p.id AND data IS NOT NULL
+    ORDER BY data DESC, id DESC
     LIMIT 1
 ) rs ON TRUE
 ORDER BY ps.valor_total_estimado DESC NULLS LAST
@@ -139,12 +139,18 @@ SELECT * FROM mv_estatisticas_populacao;
 `98_indexes.sql` cria partições anuais de 2015 a 2031. Consultas com filtro de data aproveitam o
 *partition pruning*:
 
+`transacao` guarda `conta_id` (não `pessoa_id`) e `data` é `TIMESTAMPTZ`, por isso o filtro usa um
+intervalo semiaberto — `BETWEEN ... AND DATE '2023-12-31'` perderia tudo o que aconteceu depois da
+meia-noite do dia 31:
+
 ```sql
 EXPLAIN (ANALYZE, BUFFERS)
-SELECT pessoa_id, SUM(valor)
-FROM transacao
-WHERE data BETWEEN DATE '2023-01-01' AND DATE '2023-12-31'
-GROUP BY pessoa_id;
+SELECT cb.pessoa_id, SUM(t.valor)
+FROM transacao t
+JOIN conta_bancaria cb ON cb.id = t.conta_id
+WHERE t.data >= TIMESTAMPTZ '2023-01-01 00:00:00'
+  AND t.data <  TIMESTAMPTZ '2024-01-01 00:00:00'
+GROUP BY cb.pessoa_id;
 ```
 
 ## Idade na data corrente

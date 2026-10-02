@@ -190,6 +190,8 @@ automaticamente a **todas** as tabelas.
 `persona_db/tests/unit/test_voluntariado.py`:
 
 ```python
+from datetime import date
+
 from persona_db.generators import gen_42_voluntariado
 from persona_db.generators.gen_00_pessoa import generate_personas
 
@@ -207,7 +209,8 @@ def test_voluntariado_respeita_idade_minima():
     nascimentos = {p["id"]: date.fromisoformat(p["data_nascimento"]) for p in personas}
     for row in rows["participacao_voluntaria"]:
         # mesmo corte usado pelo gerador e pelo validador
-        assert date.fromisoformat(row["data_inicio"]) >= _aniversario(nascimentos[row["pessoa_id"]], 16)
+        corte = gen_42_voluntariado._aniversario(nascimentos[row["pessoa_id"]], 16)
+        assert date.fromisoformat(row["data_inicio"]) >= corte
 ```
 
 ## 6. Verificar de ponta a ponta

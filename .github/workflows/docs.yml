@@ -18,12 +18,9 @@ on:
 permissions:
   contents: read
 
-# Um único grupo "pages" compartilhado com o workflow Jekyll legado, para que
-# dois deploys nunca disputem o mesmo ambiente.
-concurrency:
-  group: "pages"
-  cancel-in-progress: false
-
+# A serialização com o workflow Jekyll legado acontece no job de deploy (grupo
+# "pages"): builds de pull request não entram no grupo e, portanto, não podem
+# cancelar uma publicação pendente.
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -85,6 +82,11 @@ jobs:
     if: github.event_name != 'pull_request'
     needs: build
     runs-on: ubuntu-latest
+    # Mesmo grupo do workflow Jekyll legado: duas publicações nunca disputam o
+    # ambiente github-pages.
+    concurrency:
+      group: "pages"
+      cancel-in-progress: false
     # Credenciais de publicação só existem neste job.
     permissions:
       pages: write
