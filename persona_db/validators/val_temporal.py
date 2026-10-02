@@ -136,10 +136,21 @@ def validate_temporal(
                     })
 
     # 6. Processos criminais com idade >= 18 anos
-    for proc in dataset.get("processo", []):
-        if proc.get("tipo") == "criminal":
-            p = people.get(proc.get("pessoa_id_reu"))
-            dt = _date(proc.get("data_abertura"))
+    criminal_processes = {
+        proc["id"] for proc in dataset.get("processo", [])
+        if str(proc.get("tipo") or "").startswith("criminal")
+    }
+    defendants: dict[str, list[str]] = {}
+    for link in dataset.get("pessoa_processo", []):
+        if link.get("papel") == "reu" and link.get("pessoa_id"):
+            defendants.setdefault(link["processo_id"], []).append(link["pessoa_id"])
+    for judgment in dataset.get("julgamento", []):
+        proc_id = judgment.get("processo_id")
+        if proc_id not in criminal_processes:
+            continue
+        dt = _date(judgment.get("data"))
+        for person_id in defendants.get(proc_id, []):
+            p = people.get(person_id)
             if p and dt:
                 b = _date(p.get("data_nascimento"))
                 if b and (dt - b).days < 18 * 365:
@@ -147,7 +158,7 @@ def validate_temporal(
                         "domain": "temporal",
                         "rule": "criminal_process_under_18",
                         "person_id": p["id"],
-                        "process_id": proc.get("id"),
+                        "process_id": proc_id,
                     })
 
     # 7. Viagens internacionais com passaporte válido na data da volta
@@ -158,15 +169,15 @@ def validate_temporal(
             if v:
                 passports_by_person.setdefault(dv["pessoa_id"], []).append(v)
     for pd in dataset.get("pessoa_documento", []):
-        if pd.get("tipo_documento") == "passaporte" and pd.get("pessoa_id") and pd.get("data_validade"):
-            v = _date(pd.get("data_validade"))
+        if pd.get("tipo") == "passaporte" and pd.get("pessoa_id") and pd.get("validade"):
+            v = _date(pd.get("validade"))
             if v:
                 passports_by_person.setdefault(pd["pessoa_id"], []).append(v)
 
-    dest_pais = {d["id"]: d.get("pais") for d in dataset.get("destino", []) if "id" in d}
+    dest_pais = {d["id"]: (d.get("pais_ficticio") or d.get("pais")) for d in dataset.get("destino", []) if "id" in d}
     for vg in dataset.get("viagem", []):
         pais = dest_pais.get(vg.get("destino_id"), "Brasil")
-        if pais and pais != "Brasil":
+        if pais and pais not in ("Brasil", "Brasil Fictício"):
             pid = vg.get("pessoa_id")
             volta = _date(vg.get("data_volta")) or _date(vg.get("data_ida"))
             valid_dates = passports_by_person.get(pid, [])

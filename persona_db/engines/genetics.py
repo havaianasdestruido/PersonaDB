@@ -240,10 +240,9 @@ class GeneticEngine:
     # -- Altura (herança poligênica / mid-parent) ---------------------------
     def expected_child_height(self, altura_pai_cm: float, altura_mae_cm: float, sex_filho: str) -> float:
         if sex_filho.upper().startswith("M"):
-            mae_corrigida = altura_mae_cm * 1.08
+            esperada = (altura_pai_cm + altura_mae_cm * 1.08) / 2.0
         else:
-            mae_corrigida = altura_mae_cm * 0.923
-        esperada = (altura_pai_cm + mae_corrigida) / 2.0
+            esperada = (altura_pai_cm * 0.923 + altura_mae_cm) / 2.0
         altura = esperada + self._rng.normal(0.0, 6.5)
         return max(40.0, min(230.0, round(altura, 1)))
 

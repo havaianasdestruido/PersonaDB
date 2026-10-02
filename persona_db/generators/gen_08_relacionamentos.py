@@ -113,8 +113,11 @@ def generate(
             f for f in females
             if f["id"] not in married_ids
             and f["id"] != m["id"]
-            and f.get("pai_id") != m["id"]
-            and m.get("mae_id") != f["id"]
+            and m["id"] not in (f.get("pai_id"), f.get("mae_id"))
+            and f["id"] not in (m.get("pai_id"), m.get("mae_id"))
+            and not (
+                {m.get("pai_id"), m.get("mae_id")} - {None}
+            ).intersection({f.get("pai_id"), f.get("mae_id")} - {None})
             and abs((_birth(f) - m_birth).days) <= 12 * 365
         ]
         if not candidates:

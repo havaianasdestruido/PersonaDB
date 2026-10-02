@@ -43,6 +43,8 @@ def validate_juridico(
         if p and el:
             b = _date(p.get("data_nascimento"))
             ed = _date(el.get("data"))
+            if ed is None and el.get("ano") is not None:
+                ed = date(int(el["ano"]), 10, 2)
             if b and ed and (ed - b).days < 16 * 365:
                 violations.append({
                     "domain": "juridico",
@@ -113,6 +115,11 @@ def validate_juridico(
         if pid:
             contratos_by_person.setdefault(pid, []).append(ct)
 
+    defendants: dict[str, list[str]] = {}
+    for link in dataset.get("pessoa_processo", []):
+        if link.get("papel") == "reu" and link.get("pessoa_id"):
+            defendants.setdefault(link["processo_id"], []).append(link["pessoa_id"])
+
     for pn in dataset.get("pena", []):
         if pn.get("tipo") != "prisao":
             continue
@@ -121,22 +128,23 @@ def validate_juridico(
         proc = processos.get(julg.get("processo_id")) if julg else None
         if not (julg and proc):
             continue
-        reu_id = proc.get("pessoa_id_reu")
         p_start = _date(julg.get("data"))
-        dur_days = int(pn.get("duracao_dias") or 365)
-        if not (reu_id and p_start):
+        duration = pn.get("duracao_ou_valor")
+        if not (duration and p_start):
             continue
+        dur_days = int(str(duration).split()[0]) * 30
         p_end = p_start + timedelta(days=dur_days)
-        for ct in contratos_by_person.get(reu_id, []):
-            c_ini = _date(ct.get("data_inicio"))
-            c_fim = _date(ct.get("data_fim")) or date(9999, 12, 31)
-            if c_ini and c_ini <= p_end and c_fim >= p_start:
-                violations.append({
-                    "domain": "juridico",
-                    "rule": "active_employment_during_imprisonment",
-                    "person_id": reu_id,
-                    "contrato_id": ct.get("id"),
-                    "pena_id": pn.get("id"),
-                })
+        for reu_id in defendants.get(proc["id"], []):
+            for ct in contratos_by_person.get(reu_id, []):
+                c_ini = _date(ct.get("data_inicio"))
+                c_fim = _date(ct.get("data_fim")) or date(9999, 12, 31)
+                if c_ini and c_ini <= p_end and c_fim >= p_start:
+                    violations.append({
+                        "domain": "juridico",
+                        "rule": "active_employment_during_imprisonment",
+                        "person_id": reu_id,
+                        "contrato_id": ct.get("id"),
+                        "pena_id": pn.get("id"),
+                    })
 
     return violations

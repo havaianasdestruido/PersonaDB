@@ -88,9 +88,7 @@ def _cpf_digits(seed_digits: str) -> str:
 
 def _make_cpf(persona_id: str, idx: int) -> str:
     """Gera CPF fictício com prefixo 000 e dígitos verificadores válidos."""
-    h = hashlib.sha256(persona_id.encode()).hexdigest()
-    suffix = f"{idx % 1000:03d}"
-    base9 = "000" + "".join(str(int(c, 16) % 10) for c in h[:3]) + suffix
+    base9 = f"000{idx % 1_000_000:06d}"
     return _cpf_digits(base9)
 
 

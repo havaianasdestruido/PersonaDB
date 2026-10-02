@@ -97,7 +97,7 @@ def _build_junction_tables(
     dataset: dict[str, list[dict[str, Any]]],
     today: date,
 ) -> dict[str, list[dict[str, Any]]]:
-    """Deriva determinísticamente as 15 tabelas de junção N:N (Domínio 25)."""
+    """Deriva determinísticamente as tabelas de junção N:N (Domínio 25)."""
     junc: dict[str, list[dict[str, Any]]] = {
         "pessoa_habilidade": [],
         "pessoa_idioma_nivel": [],
@@ -108,7 +108,6 @@ def _build_junction_tables(
         "pessoa_pet": [],
         "pessoa_veiculo": [],
         "pessoa_imovel": [],
-        "pessoa_processo": [],
         "pessoa_eleicao": [],
         "pessoa_viagem_companheiro": [],
         "pessoa_empresa_socio": [],
@@ -129,8 +128,8 @@ def _build_junction_tables(
             junc["pessoa_idioma_nivel"].append({
                 "pessoa_id": idm["pessoa_id"],
                 "idioma_id": idm["id"],
-                "nivel_leitura": idm.get("fluencia", "intermediario"),
-                "nivel_fala": idm.get("fluencia", "intermediario"),
+                "nivel_leitura": idm.get("nivel_fluencia", "intermediario"),
+                "nivel_fala": idm.get("nivel_fluencia", "intermediario"),
             })
 
     for hb in dataset.get("hobby", []):
@@ -200,20 +199,6 @@ def _build_junction_tables(
                 "tipo_posse": "proprietario",
             })
 
-    seen_pproc: set[tuple[str, str]] = set()
-    for pr in dataset.get("processo", []):
-        proc_id = pr.get("id")
-        if pr.get("pessoa_id_autor") and proc_id:
-            k1 = (pr["pessoa_id_autor"], proc_id)
-            if k1 not in seen_pproc:
-                seen_pproc.add(k1)
-                junc["pessoa_processo"].append({"pessoa_id": k1[0], "processo_id": k1[1], "papel": "autor"})
-        if pr.get("pessoa_id_reu") and proc_id:
-            k2 = (pr["pessoa_id_reu"], proc_id)
-            if k2 not in seen_pproc:
-                seen_pproc.add(k2)
-                junc["pessoa_processo"].append({"pessoa_id": k2[0], "processo_id": k2[1], "papel": "reu"})
-
     seen_pel: set[tuple[str, str]] = set()
     for ce in dataset.get("comparecimento_eleitoral", []):
         pair = (ce.get("pessoa_id"), ce.get("eleicao_id"))
@@ -275,7 +260,7 @@ def _build_junction_tables(
                 "pessoa_id": doc["pessoa_id"],
                 "documento_id": doc["id"],
                 "data_emissao": doc.get("data_emissao"),
-                "data_expiracao": doc.get("data_validade"),
+                "data_expiracao": doc.get("validade"),
             })
 
     return junc

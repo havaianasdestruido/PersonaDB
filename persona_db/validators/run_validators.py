@@ -16,6 +16,7 @@ from pathlib import Path
 from typing import Any
 from uuid import NAMESPACE_URL, uuid5
 
+from persona_db.generators.gen_00_pessoa import simulation_today
 from persona_db.validators.val_financas import validate_financas
 from persona_db.validators.val_genealogia import validate_genealogia
 from persona_db.validators.val_juridico import validate_juridico
@@ -159,7 +160,7 @@ def validate_dataset(
     today: date | None = None,
 ) -> dict[str, Any]:
     """Executa todos os validadores e retorna um relatório consolidado."""
-    today = today or date(2026, 4, 19)
+    today = simulation_today() if today is None else today
     raw_violations: list[Violation] = []
     for check in CHECKS:
         raw_violations.extend(check(dataset, today))
@@ -204,7 +205,7 @@ def build_validation_table_rows(
     today: date | None = None,
 ) -> list[dict[str, Any]]:
     """Constrói linhas para a tabela `validacao_consistencia` (Domínio 24)."""
-    today = today or date(2026, 4, 19)
+    today = simulation_today() if today is None else today
     report = validate_dataset(dataset, today=today)
     ts = f"{today.isoformat()}T12:00:00+00:00"
     rows: list[dict[str, Any]] = []

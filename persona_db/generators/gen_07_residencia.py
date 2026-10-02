@@ -10,6 +10,7 @@ Implementa TASK-048 de TODO.MD:
 """
 from __future__ import annotations
 
+import hashlib
 import os
 import sys
 from datetime import date, timedelta
@@ -71,8 +72,8 @@ def _make_endereco(
         city = geo.city_for_class(class_label)
     bairro = geo.neighborhood_for(city["city_id"], class_label)
     end_id = str(uuid5(NAMESPACE_URL, f"end-{key}"))
-    cep_prefix = 10000 + ( abs(hash(key)) % 89999 )
-    cep_suffix = 100 + ( abs(hash(end_id)) % 899 )
+    cep_prefix = 10000 + int.from_bytes(hashlib.sha256(key.encode()).digest(), "big") % 89999
+    cep_suffix = 100 + int.from_bytes(hashlib.sha256(end_id.encode()).digest(), "big") % 899
     return {
         "id": end_id,
         "logradouro_ficticio": str(rng.choice(_LOGRADOUROS)),

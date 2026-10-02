@@ -1,7 +1,7 @@
 """Testes de aderência estatística para N = 1000 personas (TASK-095).
 
 Verifica:
-- Distribuição de classes sociais próxima de `A: 3%, B1: 5%, B2: 12%, C1: 20%, C2: 28%, D_E: 32%`
+- Distribuição de classes sociais próxima de `A: 3%, B1: 7%, B2: 15%, C1: 22%, C2: 25%, D_E: 28%`
   (teste qui-quadrado `p > 0.01`).
 - Distribuição de tipos sanguíneos próxima de `O+, A+` dominantes e `AB-` raro.
 - Proporção de sexos próxima de 50/50 (teste binomial `p > 0.01`).

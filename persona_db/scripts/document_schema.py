@@ -73,6 +73,28 @@ def render(database_url: str) -> str:
     return "\n".join(result) + "\n"
 
 
+def _table_declarations(body: str) -> list[str]:
+    """Separa declarações nas vírgulas fora de parênteses e literais SQL."""
+    parts: list[str] = []
+    current: list[str] = []
+    depth = 0
+    for token in re.findall(r"'(?:''|[^'])*'|--[^\n]*|[(),]|[^'(),-]+|-", body):
+        if token.startswith("--"):
+            continue
+        if token == "," and depth == 0:
+            parts.append(" ".join("".join(current).split()))
+            current = []
+            continue
+        if token == "(":
+            depth += 1
+        elif token == ")":
+            depth -= 1
+        current.append(token)
+    if current:
+        parts.append(" ".join("".join(current).split()))
+    return parts
+
+
 def _parse_sql_file(sql_path: Path) -> dict[str, Any]:
     """Extrai tabelas, colunas, chaves estrangeiras e comentários de um arquivo `.sql`."""
     content = sql_path.read_text(encoding="utf-8")
@@ -90,19 +112,25 @@ def _parse_sql_file(sql_path: Path) -> dict[str, Any]:
         cols: list[dict[str, str]] = []
         fks: list[tuple[str, str, str]] = list(alter_fks.get(tname, []))
 
-        for raw_line in body.splitlines():
-            line = raw_line.strip().rstrip(",")
+        table_constraints: list[str] = []
+        for line in _table_declarations(body):
             if not line or line.startswith("--"):
                 continue
             upper = line.upper()
             if upper.startswith(("PRIMARY KEY", "CONSTRAINT", "UNIQUE", "CHECK", "FOREIGN KEY")):
+                table_constraints.append(line)
                 continue
-            parts = line.split()
+            parts = line.split(maxsplit=1)
             if len(parts) < 2:
                 continue
             col_name = parts[0]
-            col_type = parts[1]
-            rest = " ".join(parts[2:])
+            declaration = re.split(
+                r"\s+(?=(?:CONSTRAINT|PRIMARY\s+KEY|NOT\s+NULL|NULL|UNIQUE|"
+                r"CHECK|REFERENCES|DEFAULT|COLLATE|GENERATED)\b)",
+                parts[1], maxsplit=1, flags=re.IGNORECASE,
+            )
+            col_type = declaration[0]
+            rest = declaration[1] if len(declaration) > 1 else ""
             is_pk = "PRIMARY KEY" in upper
             not_null = "NOT NULL" in upper or is_pk
             fk_match = re.search(r"REFERENCES\s+([a-zA-Z0-9_]+)\s*\(([a-zA-Z0-9_]+)\)", rest, re.IGNORECASE)
@@ -121,11 +149,36 @@ def _parse_sql_file(sql_path: Path) -> dict[str, Any]:
                 "constraints": constraint_str,
             })
 
+        by_name = {col["name"]: col for col in cols}
+        for constraint in table_constraints:
+            clause = re.sub(r"^CONSTRAINT\s+\w+\s+", "", constraint, flags=re.IGNORECASE)
+            pk = re.match(r"PRIMARY\s+KEY\s*\(([^)]+)\)", clause, re.IGNORECASE)
+            fk = re.match(
+                r"FOREIGN\s+KEY\s*\(([^)]+)\)\s+REFERENCES\s+(\w+)\s*\(([^)]+)\)",
+                clause, re.IGNORECASE,
+            )
+            if pk:
+                for name in pk.group(1).split(","):
+                    col = by_name[name.strip()]
+                    col["nullable"] = "NO"
+                    col["constraints"] = "; ".join(filter(None, ["PK", col["constraints"]]))
+            elif fk:
+                for name, ref_col in zip(fk.group(1).split(","), fk.group(3).split(",")):
+                    fks.append((name.strip(), fk.group(2), ref_col.strip()))
+            elif clause.upper().startswith("CHECK"):
+                for name, col in by_name.items():
+                    if re.search(rf"\b{re.escape(name)}\b", clause):
+                        col["constraints"] = "; ".join(filter(None, [col["constraints"], clause]))
+        for name, ref_tbl, ref_col in fks:
+            if name in by_name:
+                by_name[name]["fk"] = f"`{ref_tbl}({ref_col})`"
+
         tables.append({
             "name": tname,
             "comment": comments.get(tname, ""),
             "columns": cols,
             "fks": fks,
+            "constraints": table_constraints,
         })
     return {"file": sql_path.name, "tables": tables}
 
@@ -184,6 +237,10 @@ def render_from_sql_dir(schema_dir: Path | None = None) -> str:
                     f"| `{col['name']}` | `{col['type']}` | {col['nullable']} | {col['fk']} | {c_str} |"
                 )
             lines.append("")
+            for constraint in tbl["constraints"]:
+                lines.append(f"- `{constraint}`")
+            if tbl["constraints"]:
+                lines.append("")
 
     return "\n".join(lines) + "\n"
 

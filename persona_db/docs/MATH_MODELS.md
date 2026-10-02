@@ -51,7 +51,7 @@ $$\mu_{\text{altura}} = \begin{cases}
 \frac{0.923 \, H_{\text{pai}} + H_{\text{mãe}}}{2}, & \text{se feminino}
 \end{cases}, \qquad H_{\text{filho}} \sim \mathcal{N}(\mu_{\text{altura}}, 6.5^2)$$
 
-O peso adulto deriva de um IMC log-normal correlacionado com idade e condições metabólicas: $W = \text{IMC} \cdot (H/100)^2$.
+O peso adulto deriva de um IMC log-normal ajustado pela presença de doença crônica: $W = \text{IMC} \cdot (H/100)^2$.
 
 ---
 

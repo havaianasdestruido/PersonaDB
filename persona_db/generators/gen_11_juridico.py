@@ -96,29 +96,97 @@ def _terminate_overlapping_contracts(
     prison_start: date,
     prison_end: date,
     existing_tables: dict[str, list[dict[str, Any]]] | None,
+    *,
+    persona: dict[str, Any] | None = None,
+    today: date | None = None,
 ) -> None:
-    """Encerra ou ajusta contratos de trabalho que conflitem com período de prisão."""
+    """Encerra contratos sobrepostos e ajusta seus registros dependentes."""
     if not existing_tables or "contrato_trabalho" not in existing_tables:
         return
+    today = today or simulation_today()
     kept_contracts: list[dict[str, Any]] = []
+    dropped: set[str] = set()
+    shortened: dict[str, str] = {}
+    open_ended: set[str] = set()
     for c in existing_tables["contrato_trabalho"]:
         if c.get("pessoa_id") != person_id:
             kept_contracts.append(c)
             continue
         c_ini = date.fromisoformat(c["data_inicio"])
         c_fim = date.fromisoformat(c["data_fim"]) if c.get("data_fim") else None
-        # Verifica se há sobreposição com [prison_start, prison_end]
         overlaps = c_ini <= prison_end and (c_fim is None or c_fim >= prison_start)
         if not overlaps:
             kept_contracts.append(c)
             continue
-        # Se o contrato começou pelo menos 30 dias antes da prisão, encerra antes da prisão
         new_end = prison_start - timedelta(days=1)
         if new_end > c_ini:
+            if c_fim is None:
+                open_ended.add(c["id"])
             c["data_fim"] = new_end.isoformat()
+            shortened[c["id"]] = c["data_fim"]
             kept_contracts.append(c)
-        # Caso contrário, o contrato é removido por incompatibilidade com a prisão
+        else:
+            dropped.add(c["id"])
     existing_tables["contrato_trabalho"] = kept_contracts
+
+    # Estas tabelas usam IDs derivados do contrato, sem uma coluna contrato_id.
+    derived_prefixes = {
+        "historico_emprego": "histemp", "avaliacao_desempenho": "aval",
+        "promocao": "promo", "licenca_trabalho": "lic",
+    }
+    for table, entries in existing_tables.items():
+        derived_ids = {
+            str(uuid5(NAMESPACE_URL, f"{derived_prefixes[table]}-{cid}")): cid
+            for cid in dropped | shortened.keys()
+        } if table in derived_prefixes else {}
+        kept_rows = []
+        for row in entries:
+            cid = row.get("contrato_id") or derived_ids.get(row.get("id"))
+            if cid in dropped:
+                continue
+            if cid in shortened:
+                end = shortened[cid]
+                for field in ("data_inicio", "data_fim", "inicio", "fim",
+                              "data", "data_vigencia", "mes_referencia"):
+                    if row.get(field) and row[field] > end:
+                        row[field] = end
+                if table == "holerite":
+                    row["mes_referencia"] = row["mes_referencia"][:8] + "01"
+                if table == "ferias":
+                    row["dias"] = (date.fromisoformat(row["data_fim"])
+                                   - date.fromisoformat(row["data_inicio"])).days
+                if table in ("demissao", "historico_emprego"):
+                    row["motivo" if table == "demissao" else "motivo_saida"] = "prisão"
+            kept_rows.append(row)
+        existing_tables[table] = kept_rows
+
+    dismissals = existing_tables.setdefault("demissao", [])
+    dismissed = {row["contrato_id"] for row in dismissals}
+    for cid in sorted(open_ended - dismissed):
+        dismissals.append({
+            "id": str(uuid5(NAMESPACE_URL, f"dem-{cid}")),
+            "contrato_id": cid,
+            "data": shortened[cid],
+            "motivo": "prisão",
+            "tipo": "justa_causa",
+        })
+
+    if persona is None:
+        persona = next((p for p in existing_tables.get("pessoa", [])
+                        if p.get("id") == person_id), None)
+    if persona is not None:
+        active = [c for c in kept_contracts if c.get("pessoa_id") == person_id
+                  and c["data_inicio"] <= today.isoformat()
+                  and (not c.get("data_fim") or c["data_fim"] >= today.isoformat())]
+        current = max(active, key=lambda c: c["data_inicio"], default=None)
+        salaries = [s for s in existing_tables.get("salario", [])
+                    if current and s.get("contrato_id") == current["id"]
+                    and s["data_vigencia"] <= today.isoformat()]
+        salary = max(salaries, key=lambda s: s["data_vigencia"], default={})
+        persona["salario_mensal"] = float(salary.get("valor", 0.0))
+        persona["renda_anual"] = round(persona["salario_mensal"] * 13.3, 2)
+        persona["empresa_atual_id"] = current["empresa_id"] if current else None
+        persona["desempregado"] = current is None
 
 
 def generate(
@@ -272,7 +340,9 @@ def generate(
                     p["foi_preso"] = True
                     prisao_fim = min(end, julg_dt + timedelta(days=months * 30))
                     p["prisao_periodo"] = (julg_dt.isoformat(), prisao_fim.isoformat())
-                    _terminate_overlapping_contracts(p["id"], julg_dt, prisao_fim, existing_tables)
+                    _terminate_overlapping_contracts(
+                        p["id"], julg_dt, prisao_fim, existing_tables, persona=p, today=today
+                    )
                 else:
                     tipo_pena = str(rng.choice(["prestacao_servico", "restritiva", "multa"]))
                     dur_str = f"{months} meses de restrição/serviço"
