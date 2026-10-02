@@ -1,0 +1,8 @@
+# Configuração do site Jekyll publicado na raiz de https://havaianasdestruido.github.io/PersonaDB/
+#
+# O diretório website/ contém o código-fonte do site Docusaurus, que é
+# construído separadamente e acoplado em /docs pelo workflow docs.yml.
+# Excluí-lo evita que o Jekyll tente interpretar as páginas .md da documentação.
+exclude:
+  - website/
+  - _coordination/

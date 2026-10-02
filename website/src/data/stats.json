@@ -1,0 +1,15 @@
+{
+  "tables": 257,
+  "domains": 27,
+  "sqlFiles": 29,
+  "sqlLines": 3122,
+  "generators": 24,
+  "engines": 7,
+  "validators": 6,
+  "rules": 57,
+  "pythonModules": 67,
+  "pythonLines": 12831,
+  "columns": 1184,
+  "foreignKeys": 332,
+  "tests": 55
+}

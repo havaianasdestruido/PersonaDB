@@ -1,0 +1,100 @@
+name: Deploy GitHub Pages (Jekyll + Docusaurus)
+
+# O GitHub Pages publica um único artefato por repositório. Este workflow monta
+# esse artefato combinando as duas fontes:
+#   - a raiz do repositório, construída com Jekyll  -> /PersonaDB/
+#   - o site Docusaurus em website/                 -> /PersonaDB/docs/
+# Por isso o workflow legado jekyll-gh-pages.yml foi mantido apenas como
+# execução manual (workflow_dispatch): se ele publicasse sozinho, apagaria /docs.
+
+on:
+  push:
+    branches: ["main"]
+  pull_request:
+  workflow_dispatch:
+
+# Permissões mínimas no nível do workflow: o job de build não recebe
+# credenciais de publicação.
+permissions:
+  contents: read
+
+# A serialização com o workflow Jekyll legado acontece no job de deploy (grupo
+# "pages"): builds de pull request não entram no grupo e, portanto, não podem
+# cancelar uma publicação pendente.
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # necessário para "última atualização" nas páginas
+          persist-credentials: false
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: website/package-lock.json
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Setup Pages
+        uses: actions/configure-pages@v5
+
+      - name: Build Jekyll (raiz do site)
+        uses: actions/jekyll-build-pages@v1
+        with:
+          source: ./
+          destination: ./_site
+
+      - name: Install dependencies
+        working-directory: website
+        run: npm ci
+
+      - name: Build Docusaurus
+        working-directory: website
+        run: npm run build # o hook prebuild roda scripts/generate_reference.py
+
+      # O jekyll-build-pages roda em container e deixa _site com dono root;
+      # por isso montamos a árvore final numa cópia pertencente ao runner.
+      - name: Montar /docs dentro do site
+        run: |
+          rm -rf _combined
+          cp -R _site _combined
+          rm -rf _combined/docs _combined/website
+          mkdir -p _combined/docs
+          cp -R website/build/. _combined/docs/
+          echo "Raiz do site:" && ls _combined
+          echo "Documentação:" && ls _combined/docs | head
+
+      - name: Upload artifact
+        if: github.event_name != 'pull_request'
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: ./_combined
+
+  deploy:
+    if: github.event_name != 'pull_request'
+    needs: build
+    runs-on: ubuntu-latest
+    # Mesmo grupo do workflow Jekyll legado: duas publicações nunca disputam o
+    # ambiente github-pages.
+    concurrency:
+      group: "pages"
+      cancel-in-progress: false
+    # Credenciais de publicação só existem neste job.
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

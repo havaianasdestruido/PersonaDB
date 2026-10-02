@@ -1,0 +1,74 @@
+/**
+ * Tema do PersonaDB.
+ * Paleta: verde-petróleo (determinismo/dados) com acento âmbar.
+ */
+
+:root {
+  --ifm-color-primary: #0f766e;
+  --ifm-color-primary-dark: #0e6a63;
+  --ifm-color-primary-darker: #0d645d;
+  --ifm-color-primary-darkest: #0a524d;
+  --ifm-color-primary-light: #108279;
+  --ifm-color-primary-lighter: #11887f;
+  --ifm-color-primary-lightest: #149a90;
+  --ifm-code-font-size: 93%;
+  --ifm-font-family-base: system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  --docusaurus-highlighted-code-line-bg: rgba(0, 0, 0, 0.08);
+  --personadb-accent: #d97706;
+}
+
+[data-theme='dark'] {
+  --ifm-color-primary: #4fd1c5;
+  --ifm-color-primary-dark: #38c9bc;
+  --ifm-color-primary-darker: #2fc4b6;
+  --ifm-color-primary-darkest: #26a498;
+  --ifm-color-primary-light: #66d7ce;
+  --ifm-color-primary-lighter: #72dad2;
+  --ifm-color-primary-lightest: #96e4de;
+  --ifm-background-color: #0f1518;
+  --docusaurus-highlighted-code-line-bg: rgba(255, 255, 255, 0.1);
+  --personadb-accent: #fbbf24;
+}
+
+/* Tabelas longas (schema, catálogos) ficam legíveis e roláveis. */
+.markdown table {
+  display: table;
+  width: 100%;
+  font-size: 0.92rem;
+}
+
+.markdown table th {
+  white-space: nowrap;
+}
+
+.markdown table code {
+  white-space: nowrap;
+}
+
+/* Links de "fonte" nas páginas geradas. */
+.markdown small {
+  color: var(--ifm-color-emphasis-600);
+}
+
+.markdown h2 {
+  border-bottom: 1px solid var(--ifm-color-emphasis-200);
+  padding-bottom: 0.3rem;
+  margin-top: 2.2rem;
+}
+
+.markdown h4 {
+  margin-top: 1.6rem;
+}
+
+/* Diagramas Mermaid centralizados e com respiro. */
+.docusaurus-mermaid-container {
+  margin: 1.5rem 0;
+  text-align: center;
+}
+
+/* Fórmulas KaTeX em bloco não devem estourar no mobile. */
+.katex-display {
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding: 0.25rem 0;
+}
