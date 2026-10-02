@@ -1,17 +1,1 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64" role="img" aria-label="PersonaDB">
-  <defs>
-    <linearGradient id="pdb" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0%" stop-color="#4fd1c5"/>
-      <stop offset="100%" stop-color="#0d6e66"/>
-    </linearGradient>
-  </defs>
-  <rect x="2" y="2" width="60" height="60" rx="14" fill="url(#pdb)"/>
-  <g fill="none" stroke="#ffffff" stroke-width="3" stroke-linecap="round">
-    <ellipse cx="32" cy="17" rx="17" ry="6"/>
-    <path d="M15 17v30"/>
-    <path d="M49 17v30"/>
-    <path d="M15 47a17 6 0 0 0 34 0"/>
-  </g>
-  <circle cx="32" cy="27.7" r="3.7" fill="#ffffff"/>
-  <path d="M23.5 41.5a8.5 8.5 0 0 1 17 0z" fill="#ffffff"/>
-</svg>
+<svg aria-label="PersonaDB" viewBox="0 0 64 64"><defs><linearGradient id="a" x1="0" x2="1" y1="0" y2="1"><stop offset="0%" stop-color="#4fd1c5"/><stop offset="100%" stop-color="#0d6e66"/></linearGradient></defs><rect width="60" height="60" x="2" y="2" fill="url(#a)" rx="14"/><g fill="none" stroke="#fff" stroke-linecap="round" stroke-width="3"><ellipse cx="32" cy="17" rx="17" ry="6"/><path d="M15 17v30m34-30v30m-34 0a17 6 0 0034 0"/></g><circle cx="32" cy="27.7" r="3.7" fill="#fff"/><path fill="#fff" d="M23.5 41.5a8.5 8.5 0 0117 0z"/></svg>
