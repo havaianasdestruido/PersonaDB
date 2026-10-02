@@ -231,10 +231,8 @@ class GeneticEngine:
         """Validador: tipo de sangue filho é possível dados os pais."""
         abo = cls.punnett_abo(tipo_pai, tipo_mae)
         rh = cls.rh_punnett(rh_pai, rh_mae)
-        filho_abo = tipo_filho[0] if len(tipo_filho) == 2 else tipo_filho[:-1]
+        filho_abo = tipo_filho[:-1] if tipo_filho.endswith(("+", "-")) else tipo_filho
         filho_rh = "positivo" if tipo_filho.endswith("+") else "negativo"
-        if tipo_filho[0] in "AB":
-            filho_abo = tipo_filho[0:2]
         if abo.get(filho_abo, 0.0) <= 0.0:
             return False
         return not rh.get(filho_rh, 0.0) <= 0.0
@@ -242,10 +240,9 @@ class GeneticEngine:
     # -- Altura (herança poligênica / mid-parent) ---------------------------
     def expected_child_height(self, altura_pai_cm: float, altura_mae_cm: float, sex_filho: str) -> float:
         if sex_filho.upper().startswith("M"):
-            mae_corrigida = altura_mae_cm * 1.08
+            esperada = (altura_pai_cm + altura_mae_cm * 1.08) / 2.0
         else:
-            mae_corrigida = altura_mae_cm * 0.923
-        esperada = (altura_pai_cm + mae_corrigida) / 2.0
+            esperada = (altura_pai_cm * 0.923 + altura_mae_cm) / 2.0
         altura = esperada + self._rng.normal(0.0, 6.5)
         return max(40.0, min(230.0, round(altura, 1)))
 

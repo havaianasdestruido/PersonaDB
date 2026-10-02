@@ -10,10 +10,12 @@ persona (CPF com dígitos verificadores válidos e padrão oficial).
 """
 from __future__ import annotations
 
+import base64
 import hashlib
 import os
 import sys
 from datetime import date, timedelta
+from uuid import NAMESPACE_URL, uuid5
 
 try:  # pragma: no cover
     from persona_db.engines.rng import SeededRNG, new_rng
@@ -72,9 +74,7 @@ _FLUENCIA_NIVEL = {
 
 def _cpf_digits(seed_digits: str) -> str:
     """Adiciona dígitos verificadores válidos a 9 dígitos-base."""
-    cpf = []
-    for i, d in enumerate(seed_digits):
-        cpf.append(int(d))
+    cpf = [int(d) for d in seed_digits]
 
     def _dv(partial: list[int], weights: list[int]) -> int:
         total = sum(a * b for a, b in zip(partial, weights))
@@ -87,30 +87,36 @@ def _cpf_digits(seed_digits: str) -> str:
 
 
 def _make_cpf(persona_id: str, idx: int) -> str:
-    h = hashlib.sha256(persona_id.encode()).hexdigest()
-    suffix = f"{idx % 1000:03d}"
-    base9 = "".join(str(int(c, 16) % 10) for c in h[:6]) + suffix
+    """Gera CPF fictício com prefixo 000 e dígitos verificadores válidos."""
+    base9 = f"000{idx % 1_000_000:06d}"
     return _cpf_digits(base9)
 
 
 def _fake_num(persona_id: str, idx: int, length: int, alphabet: str = "0123456789") -> str:
     h = hashlib.sha256(f"{persona_id}|{length}".encode()).hexdigest()
-    out = []
-    for i in range(length):
-        out.append(alphabet[int(h[i], 16) % len(alphabet)])
+    out = [alphabet[int(h[i], 16) % len(alphabet)] for i in range(length)]
     feitos = "".join(out)
     return f"{idx % 10}" + feitos[1:]
 
 
-def _doc_validade(tipo: str, idx: int, rng: SeededRNG, today: date) -> date | None:
+def _doc_validade(tipo: str, idx: int, rng: SeededRNG, today: date) -> str | None:
     if tipo not in ("CNH", "passaporte", "titulo de eleitor"):
         return None
-    emitido = today - timedelta(days=rng.integer(0, 2200))
-    if tipo == "CNH":
-        return emitido + timedelta(days=3650)
-    if tipo == "titulo de eleitor":
-        return emitido + timedelta(days=3650)
-    return emitido + timedelta(days=1825)
+    emitido = today - timedelta(days=rng.integer(0, 1400))
+    if tipo in ("CNH", "titulo de eleitor"):
+        return (emitido + timedelta(days=3650)).isoformat()
+    return (emitido + timedelta(days=3650)).isoformat()
+
+
+def _life_date(persona: dict, rng: SeededRNG, today: date, min_age_years: int = 0) -> str:
+    born = date.fromisoformat(persona["data_nascimento"])
+    end = date.fromisoformat(persona["data_obito"]) if persona.get("data_obito") else today
+    end = min(end, today)
+    start = min(end, born + timedelta(days=min_age_years * 365))
+    if start >= end:
+        return end.isoformat()
+    span = max(1, (end - start).days)
+    return (start + timedelta(days=rng.integer(0, span - 1))).isoformat()
 
 
 # ---------------------------------------------------------------------------
@@ -123,24 +129,47 @@ def _pessoa_documento(persona: dict, rng: SeededRNG, today: date, idx: int) -> l
     idade = (today - nasc).days / 365.25
 
     docs: list[dict] = []
-    docs.append({"tipo": "RG", "numero_ficticio": _fake_num(ids, idx, 9),
-                 "orgao_emissor": _ORGAOS["RG"], "validade": None})
-    docs.append({"tipo": "CPF", "numero_ficticio": _make_cpf(ids, idx),
-                 "orgao_emissor": _ORGAOS["CPF"], "validade": None})
+    docs.append({
+        "id": str(uuid5(NAMESPACE_URL, f"doc-{ids}-RG")),
+        "tipo": "RG",
+        "numero_ficticio": _fake_num(ids, idx, 9),
+        "orgao_emissor": _ORGAOS["RG"],
+        "validade": None,
+    })
+    docs.append({
+        "id": str(uuid5(NAMESPACE_URL, f"doc-{ids}-CPF")),
+        "tipo": "CPF",
+        "numero_ficticio": _make_cpf(ids, idx),
+        "orgao_emissor": _ORGAOS["CPF"],
+        "validade": None,
+    })
     if idade >= 18 and rng.bernoulli(0.78):
-        docs.append({"tipo": "CNH", "numero_ficticio": _fake_num(ids, idx, 11),
-                     "orgao_emissor": _ORGAOS["CNH"],
-                     "validade": _doc_validade("CNH", idx, rng, today)})
+        docs.append({
+            "id": str(uuid5(NAMESPACE_URL, f"doc-{ids}-CNH")),
+            "tipo": "CNH",
+            "numero_ficticio": _fake_num(ids, idx, 11),
+            "orgao_emissor": _ORGAOS["CNH"],
+            "validade": _doc_validade("CNH", idx, rng, today),
+        })
     if idade >= 16:
-        docs.append({"tipo": "titulo de eleitor",
-                     "numero_ficticio": _fake_num(ids, idx, 12),
-                     "orgao_emissor": _ORGAOS["titulo de eleitor"],
-                     "validade": _doc_validade("titulo de eleitor", idx, rng, today)})
-    if rng.bernoulli(0.035):
-        docs.append({"tipo": "passaporte",
-                     "numero_ficticio": _fake_num(ids, idx, 9, "ABCDEFGHJKLMNPQRSTUVWXYZ0123456789"),
-                     "orgao_emissor": _ORGAOS["passaporte"],
-                     "validade": _doc_validade("passaporte", idx, rng, today)})
+        docs.append({
+            "id": str(uuid5(NAMESPACE_URL, f"doc-{ids}-TE")),
+            "tipo": "titulo de eleitor",
+            "numero_ficticio": _fake_num(ids, idx, 12),
+            "orgao_emissor": _ORGAOS["titulo de eleitor"],
+            "validade": _doc_validade("titulo de eleitor", idx, rng, today),
+        })
+    p_pass = 0.45 if persona["classe_social"] in ("A", "B1") else (0.18 if persona["classe_social"] == "B2" else 0.05)
+    if rng.bernoulli(p_pass):
+        val = _doc_validade("passaporte", idx, rng, today)
+        persona["passaporte_validade"] = val
+        docs.append({
+            "id": str(uuid5(NAMESPACE_URL, f"doc-{ids}-PASS")),
+            "tipo": "passaporte",
+            "numero_ficticio": _fake_num(ids, idx, 9, "ABCDEFGHJKLMNPQRSTUVWXYZ0123456789"),
+            "orgao_emissor": _ORGAOS["passaporte"],
+            "validade": val,
+        })
     return docs
 
 
@@ -149,9 +178,9 @@ def _pessoa_biometria(persona: dict, rng: SeededRNG) -> list[dict]:
     seed = hashlib.sha256(ids.encode()).hexdigest()
     digit = seed[:40]
     iris = hashlib.sha256((seed + "|iris").encode()).digest()
-    import base64
     face = hashlib.sha256((seed + "|face").encode()).hexdigest()
     return [{
+        "id": str(uuid5(NAMESPACE_URL, f"bio-{ids}")),
         "impressao_digital_ficticia": digit,
         "padrao_iris_ficticio": base64.b64encode(iris).decode(),
         "hash_facial_ficticio": face,
@@ -163,24 +192,28 @@ def _pessoa_foto(persona: dict, rng: SeededRNG, today: date) -> list[dict]:
     qtd = 2 + rng.integer(0, 3)
     rows = []
     for k in range(qtd):
-        data = (today - timedelta(days=rng.integer(0, 3650))).isoformat()
+        data = _life_date(persona, rng, today)
         rows.append({
+            "id": str(uuid5(NAMESPACE_URL, f"foto-{ids}-{k}")),
             "url_ficticia": f"https://fotos.personadb.test/{ids}/foto-{k}.jpg",
             "data": data,
-            "contexto": rng.choice(["documento", "perfil", "evento", "registro"]),
+            "contexto": str(rng.choice(["documento", "perfil", "evento", "registro"])),
         })
     return rows
 
 
 def _pessoa_assinatura(persona: dict, rng: SeededRNG, today: date) -> list[dict]:
+    ids = persona["id"]
     return [{
-        "modelo_assinatura": f"https://assinaturas.personadb.test/{persona['id']}/assinatura.svg",
-        "data_registro": (today - timedelta(days=rng.integer(0, 3650))).isoformat(),
+        "id": str(uuid5(NAMESPACE_URL, f"ass-{ids}")),
+        "modelo_assinatura": f"https://assinaturas.personadb.test/{ids}/assinatura.svg",
+        "data_registro": _life_date(persona, rng, today, min_age_years=10),
     }]
 
 
 def _pessoa_caracteristica_fisica(persona: dict, rng: SeededRNG) -> list[dict]:
     return [{
+        "id": str(uuid5(NAMESPACE_URL, f"fis-{persona['id']}")),
         "altura": persona["altura"],
         "peso": persona["peso"],
         "cor_olhos": persona["cor_olhos"],
@@ -196,21 +229,27 @@ def _pessoa_marca_distintiva(persona: dict, rng: SeededRNG, today: date) -> list
         return []
     qtd = rng.integer(1, 2)
     rows = []
-    for _ in range(qtd):
+    for k in range(qtd):
         tipo = str(rng.choice(_MARCA_TYPES))
         loc = str(rng.choice(_MARCA_LOC))
         rows.append({
+            "id": str(uuid5(NAMESPACE_URL, f"marca-{persona['id']}-{k}")),
             "tipo": tipo,
             "localizacao_corporal": loc,
             "descricao": f"{tipo} em {loc}",
-            "data_aquisicao": (today - timedelta(days=rng.integer(120, 12000))).isoformat(),
+            "data_aquisicao": _life_date(persona, rng, today, min_age_years=5),
         })
     return rows
 
 
 def _pessoa_idioma(persona: dict, rng: SeededRNG) -> list[dict]:
-    idiomas = [{"idioma": "portugues", "nivel_fluencia": "nativo",
-                "forma_aprendizado": "família"}]
+    ids = persona["id"]
+    idiomas = [{
+        "id": str(uuid5(NAMESPACE_URL, f"idioma-{ids}-pt")),
+        "idioma": "portugues",
+        "nivel_fluencia": "nativo",
+        "forma_aprendizado": "família",
+    }]
     prob = 0.18 + (0.12 if persona["education"] in ("superior", "pos") else 0.0)
     if persona["classe_social"] in ("A", "B1"):
         prob += 0.15
@@ -219,12 +258,14 @@ def _pessoa_idioma(persona: dict, rng: SeededRNG) -> list[dict]:
                                weights=list(_FLUENCIA_NIVEL.values())))
         idioma = str(rng.choice(_IDIOMAS_SEC))
         idiomas.append({
+            "id": str(uuid5(NAMESPACE_URL, f"idioma-{ids}-{idioma}")),
             "idioma": idioma,
             "nivel_fluencia": nivel,
             "forma_aprendizado": _ORIGEM_IDIOMA[idioma],
         })
-    if rng.bernoulli(0.07):
+    if rng.bernoulli(0.07) and not any(i["idioma"] == "espanhol" for i in idiomas):
         idiomas.append({
+            "id": str(uuid5(NAMESPACE_URL, f"idioma-{ids}-espanhol-2")),
             "idioma": "espanhol",
             "nivel_fluencia": "basico",
             "forma_aprendizado": "viagens",
@@ -238,9 +279,10 @@ def _pessoa_nome_anterior(persona: dict, rng: SeededRNG, today: date) -> list[di
     from persona_db.seeds.lookup_data import SURNAMES
     nome_antigo = persona["nome_completo"].rsplit(" ", 1)[0] + " " + str(rng.choice(SURNAMES))
     return [{
+        "id": str(uuid5(NAMESPACE_URL, f"nomeant-{persona['id']}")),
         "nome_antigo": nome_antigo,
-        "motivo_mudanca": rng.choice(["casamento", "retificação civil", "adoção", "divórcio"]),
-        "data_mudanca": (today - timedelta(days=rng.integer(600, 9000))).isoformat(),
+        "motivo_mudanca": str(rng.choice(["casamento", "retificação civil", "adoção", "divórcio"])),
+        "data_mudanca": _life_date(persona, rng, today, min_age_years=18),
     }]
 
 
@@ -250,17 +292,19 @@ def _pessoa_apelido(persona: dict, rng: SeededRNG) -> list[dict]:
     nick = persona["nome_completo"].split()[0][:3].lower()
     qtd = rng.integer(1, 2)
     rows = []
-    for _ in range(qtd):
+    for k in range(qtd):
         apelido, contexto = rng.choice(_APELIDO_METADADOS)
         rows.append({
-            "apelido": apelido,
+            "id": str(uuid5(NAMESPACE_URL, f"apelido-{persona['id']}-{k}")),
+            "apelido": str(apelido),
             "origem": nick,
-            "contexto_uso": contexto,
+            "contexto_uso": str(contexto),
         })
     return rows
 
 
-def generate(persona: dict, rng: SeededRNG, today: date | None = None) -> dict[str, list[dict]]:
+def generate_one(persona: dict, rng: SeededRNG, today: date | None = None) -> dict[str, list[dict]]:
+    """Gera todas as tabelas de identidade e biometria para uma única persona."""
     today = today or simulation_today()
     idx = int(persona["idx"])
     return {
@@ -276,7 +320,9 @@ def generate(persona: dict, rng: SeededRNG, today: date | None = None) -> dict[s
     }
 
 
-def generate_all(personas: list[dict], seed: int = 7) -> dict[str, list[dict]]:
+def generate_all(personas: list[dict], seed: int = 7, today: date | None = None) -> dict[str, list[dict]]:
+    """Gera as tabelas do domínio 01 para todas as personas."""
+    today = today or simulation_today()
     master = new_rng(seed)
     out: dict[str, list[dict]] = {k: [] for k in (
         "pessoa_nome_anterior", "pessoa_apelido", "pessoa_documento",
@@ -285,11 +331,26 @@ def generate_all(personas: list[dict], seed: int = 7) -> dict[str, list[dict]]:
     )}
     for p in personas:
         rng = master.fork(p["id"], "id01")
-        rows = generate(p, rng)
+        rows = generate_one(p, rng, today=today)
         for table, entries in rows.items():
             for e in entries:
                 out[table].append({"pessoa_id": p["id"], **e})
     return out
+
+
+def generate(
+    persona_or_list: dict | list[dict],
+    rng_or_seed: SeededRNG | int = 7,
+    today: date | None = None,
+    *,
+    seed: int | None = None,
+) -> dict[str, list[dict]]:
+    """Aceita uma lista de personas (batch) ou uma única persona."""
+    if isinstance(persona_or_list, list):
+        eff_seed = seed if seed is not None else (int(rng_or_seed) if isinstance(rng_or_seed, int) else 7)
+        return generate_all(persona_or_list, seed=eff_seed, today=today)
+    rng = rng_or_seed if isinstance(rng_or_seed, SeededRNG) else new_rng(int(rng_or_seed))
+    return generate_one(persona_or_list, rng, today=today)
 
 
 if __name__ == "__main__":  # pragma: no cover
