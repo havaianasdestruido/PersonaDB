@@ -63,17 +63,23 @@ jobs:
         working-directory: website
         run: npm run build # o hook prebuild roda scripts/generate_reference.py
 
+      # O jekyll-build-pages roda em container e deixa _site com dono root;
+      # por isso montamos a árvore final numa cópia pertencente ao runner.
       - name: Montar /docs dentro do site
         run: |
-          rm -rf _site/docs _site/website
-          mkdir -p _site/docs
-          cp -R website/build/. _site/docs/
+          rm -rf _combined
+          cp -R _site _combined
+          rm -rf _combined/docs _combined/website
+          mkdir -p _combined/docs
+          cp -R website/build/. _combined/docs/
+          echo "Raiz do site:" && ls _combined
+          echo "Documentação:" && ls _combined/docs | head
 
       - name: Upload artifact
         if: github.event_name != 'pull_request'
         uses: actions/upload-pages-artifact@v3
         with:
-          path: ./_site
+          path: ./_combined
 
   deploy:
     if: github.event_name != 'pull_request'
